@@ -1,21 +1,58 @@
-const express = require("express");
-const app = express();
+require('dotenv').config()
+const express = require('express')
+const app = express()
 
-app.use(express.json());
+app.use(express.json())
+
+const ZAPI_INSTANCE_ID = process.env.ZAPI_INSTANCE_ID
+const ZAPI_TOKEN = process.env.ZAPI_TOKEN
+const ZAPI_CLIENT_TOKEN = process.env.ZAPI_CLIENT_TOKEN
+
+// Função para enviar mensagem pelo WhatsApp
+async function sendMessage(phone, message) {
+  const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Client-Token': ZAPI_CLIENT_TOKEN
+    },
+    body: JSON.stringify({ phone, message })
+  })
+
+  const data = await response.json()
+  console.log('Resposta enviada:', data)
+}
 
 // Rota de teste
-app.get("/", (req, res) => {
-  res.send("Bot da barbearia rodando!");
-});
+app.get('/', (req, res) => {
+  res.send('Bot da barbearia rodando!')
+})
 
-// Webhook — aqui a Z-API vai enviar as mensagens
-app.post("/webhook", (req, res) => {
-  const body = req.body;
-  console.log("Mensagem recebida:", JSON.stringify(body, null, 2));
-  res.sendStatus(200);
-});
+// Webhook — recebe mensagens da Z-API
+app.post('/webhook', async (req, res) => {
+  const body = req.body
 
-const PORT = process.env.PORT || 3000;
+  // Ignora mensagens enviadas pelo próprio bot
+  if (body.fromMe) return res.sendStatus(200)
+
+  // Ignora se não tiver texto
+  if (!body.text?.message) return res.sendStatus(200)
+
+  const phone = body.phone
+  const text = body.text.message
+  const name = body.senderName
+
+  console.log(`Mensagem de ${name} (${phone}): ${text}`)
+
+  // Por enquanto responde com eco
+  await sendMessage(phone, `Olá ${name}! Recebi sua mensagem: "${text}"`)
+
+  res.sendStatus(200)
+})
+
+const PORT = process.env.PORT || 3000
 app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
+  console.log(`Servidor rodando na porta ${PORT}`)
+})
