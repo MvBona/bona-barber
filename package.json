@@ -1,0 +1,24 @@
+{
+  "name": "barber-bot",
+  "version": "1.0.0",
+  "description": "Bot de agendamento para barbeiros.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MvBona/barbet-bot.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/MvBona/barbet-bot/issues"
+  },
+  "homepage": "https://github.com/MvBona/barbet-bot#readme",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
