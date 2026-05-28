@@ -17,6 +17,7 @@ require("dotenv").config();
 
 console.log("carregando express...");
 const express = require("express");
+const schedule = require("node-cron");
 
 console.log("carregando sheets...");
 const {
@@ -27,7 +28,7 @@ const {
 } = require("./sheets");
 
 console.log("carregando ai...");
-const { interpretMessage, clearHistory } = require("./ai");
+const { interpretMessage, clearAllHistories } = require("./ai");
 
 console.log("todos os módulos carregados!");
 const app = express();
@@ -85,7 +86,6 @@ app.post("/webhook", async (req, res) => {
         );
       } else {
         await sendMessage(phone, result.resposta);
-        clearHistory(phone);
       }
     } else if (result.acao === "cancelar" && result.data && result.horario) {
       const cancelled = await cancelSlot(result.data, result.horario, phone);
@@ -96,7 +96,6 @@ app.post("/webhook", async (req, res) => {
         );
       } else {
         await sendMessage(phone, result.resposta);
-        clearHistory(phone);
       }
     } else if (
       result.acao === "reagendar" &&
@@ -120,7 +119,6 @@ app.post("/webhook", async (req, res) => {
         );
       } else {
         await sendMessage(phone, result.resposta);
-        clearHistory(phone);
       }
     } else {
       await sendMessage(phone, result.resposta);
@@ -135,6 +133,19 @@ app.post("/webhook", async (req, res) => {
 
   res.sendStatus(200);
 });
+
+// Limpa histórico de todas as conversas todo dia à 01h
+schedule.schedule(
+  "0 1 * * *",
+  () => {
+    console.log("Limpando histórico de conversas...");
+    clearAllHistories();
+    console.log("Histórico limpo!");
+  },
+  {
+    timezone: "America/Sao_Paulo",
+  },
+);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
