@@ -27,12 +27,13 @@ const {
 } = require("./sheets");
 
 console.log("carregando ai...");
-const { interpretMessage } = require("./ai");
+const { interpretMessage, clearHistory } = require("./ai");
 
 console.log("todos os módulos carregados!");
 const app = express();
 
 app.use(express.json());
+
 const ZAPI_INSTANCE_ID = process.env.ZAPI_INSTANCE_ID;
 const ZAPI_TOKEN = process.env.ZAPI_TOKEN;
 const ZAPI_CLIENT_TOKEN = process.env.ZAPI_CLIENT_TOKEN;
@@ -71,7 +72,7 @@ app.post("/webhook", async (req, res) => {
 
   try {
     const slots = await getAvailableSlots();
-    const result = await interpretMessage(text, slots, name);
+    const result = await interpretMessage(text, slots, name, phone);
 
     console.log("Intenção identificada:", result);
 
@@ -84,6 +85,7 @@ app.post("/webhook", async (req, res) => {
         );
       } else {
         await sendMessage(phone, result.resposta);
+        clearHistory(phone);
       }
     } else if (result.acao === "cancelar" && result.data && result.horario) {
       const cancelled = await cancelSlot(result.data, result.horario, phone);
@@ -94,6 +96,7 @@ app.post("/webhook", async (req, res) => {
         );
       } else {
         await sendMessage(phone, result.resposta);
+        clearHistory(phone);
       }
     } else if (
       result.acao === "reagendar" &&
@@ -117,6 +120,7 @@ app.post("/webhook", async (req, res) => {
         );
       } else {
         await sendMessage(phone, result.resposta);
+        clearHistory(phone);
       }
     } else {
       await sendMessage(phone, result.resposta);
@@ -132,7 +136,7 @@ app.post("/webhook", async (req, res) => {
   res.sendStatus(200);
 });
 
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`)
-})
+  console.log(`Servidor rodando na porta ${PORT}`);
+});
