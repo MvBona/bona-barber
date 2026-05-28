@@ -1,13 +1,13 @@
 const { google } = require("googleapis");
-const path = require("path");
+
+const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
 
 const auth = new google.auth.GoogleAuth({
-  keyFile: path.join(__dirname, "../google-credentials.json"),
+  credentials,
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
-
 // Busca todos os horários livres
 async function getAvailableSlots() {
   const client = await auth.getClient();
