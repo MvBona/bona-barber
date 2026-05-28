@@ -1,38 +1,51 @@
-const Anthropic = require('@anthropic-ai/sdk')
+const Anthropic = require("@anthropic-ai/sdk");
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-async function interpretMessage(message, availableSlots) {
+async function interpretMessage(message, availableSlots, clientName) {
   const slotsText = availableSlots
-    .map(s => `${s.data} às ${s.horario}`)
-    .join('\n')
+    .map((s) => `${s.data} às ${s.horario}`)
+    .join("\n");
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: "claude-sonnet-4-6",
     max_tokens: 1024,
     messages: [
       {
-        role: 'user',
-        content: message
-      }
+        role: "user",
+        content: message,
+      },
     ],
-    system: `Você é o assistente virtual de uma barbearia. Seu papel é identificar a intenção do cliente e responder de forma simpática e informal.
+    system: `Você é o assistente virtual de uma barbearia. Interprete a mensagem do cliente e responda com um JSON.
 
-Horários disponíveis para agendamento:
+Horários disponíveis:
 ${slotsText}
 
-Regras:
-- Se o cliente quiser AGENDAR, identifique o horário desejado e confirme. Se não especificou horário, mostre os disponíveis.
-- Se o cliente quiser CANCELAR, peça confirmação do horário.
-- Se o cliente quiser VER HORÁRIOS, liste os disponíveis.
-- Se não entender, peça para reformular.
-- Responda sempre em português informal e amigável, como um atendente humano.
-- Mantenha respostas curtas — é uma conversa de WhatsApp.
-
-Responda APENAS com o texto da mensagem para o cliente, sem explicações adicionais.`
-  })
-
-  return response.content[0].text
+Responda APENAS com um JSON válido neste formato, sem texto adicional:
+{
+  "acao": "agendar" | "cancelar" | "reagendar" | "listar" | "conversa",
+  "data": "2026-05-29" ou null,
+  "horario": "14:00" ou null,
+  "data_nova": "2026-05-29" ou null,
+  "horario_novo": "14:00" ou null,
+  "resposta": "mensagem amigável para o cliente"
 }
 
-module.exports = { interpretMessage }
+Regras:
+- "agendar": cliente quer marcar horário. Preencha data e horario se especificou.
+- "cancelar": cliente quer cancelar. Preencha data e horario do agendamento atual.
+- "reagendar": cliente quer mudar de horário. Preencha data/horario do atual e data_nova/horario_novo do novo.
+- "listar": cliente quer ver horários disponíveis.
+- "conversa": saudação, dúvida, ou qualquer outra mensagem.
+- Se faltar informação para completar a ação, use "conversa" e peça o que falta na resposta.
+- Resposta sempre em português informal e curta — é WhatsApp.
+- Use emojis com moderação.
+- Datas sempre no formato YYYY-MM-DD e horários no formato HH:MM.`,
+  });
+
+  const text = response.content[0].text;
+  const clean = text.replace(/```json|```/g, "").trim();
+  return JSON.parse(clean);
+}
+
+module.exports = { interpretMessage };

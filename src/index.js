@@ -1,6 +1,11 @@
 require("dotenv").config();
 const express = require("express");
-const { getAvailableSlots, bookSlot } = require("./sheets");
+const {
+  getAvailableSlots,
+  bookSlot,
+  cancelSlot,
+  rescheduleSlot,
+} = require("./sheets");
 const { interpretMessage } = require("./ai");
 const app = express();
 
@@ -44,8 +49,56 @@ app.post("/webhook", async (req, res) => {
 
   try {
     const slots = await getAvailableSlots();
-    const reply = await interpretMessage(text, slots);
-    await sendMessage(phone, reply);
+    const result = await interpretMessage(text, slots, name);
+
+    console.log("Intenção identificada:", result);
+
+    if (result.acao === "agendar" && result.data && result.horario) {
+      const booked = await bookSlot(result.data, result.horario, name, phone);
+      if (!booked) {
+        await sendMessage(
+          phone,
+          `Ops! O horário ${result.horario} não está mais disponível. Escolhe outro? 😅`,
+        );
+      } else {
+        await sendMessage(phone, result.resposta);
+      }
+    } else if (result.acao === "cancelar" && result.data && result.horario) {
+      const cancelled = await cancelSlot(result.data, result.horario, phone);
+      if (!cancelled) {
+        await sendMessage(
+          phone,
+          `Não encontrei esse agendamento. Confirma o horário? 🤔`,
+        );
+      } else {
+        await sendMessage(phone, result.resposta);
+      }
+    } else if (
+      result.acao === "reagendar" &&
+      result.data &&
+      result.horario &&
+      result.data_nova &&
+      result.horario_novo
+    ) {
+      const rescheduled = await rescheduleSlot(
+        result.data,
+        result.horario,
+        result.data_nova,
+        result.horario_novo,
+        name,
+        phone,
+      );
+      if (!rescheduled) {
+        await sendMessage(
+          phone,
+          `Não consegui reagendar. Confirma os horários? 🤔`,
+        );
+      } else {
+        await sendMessage(phone, result.resposta);
+      }
+    } else {
+      await sendMessage(phone, result.resposta);
+    }
   } catch (error) {
     console.error("Erro ao processar mensagem:", error.message);
     await sendMessage(
@@ -55,9 +108,4 @@ app.post("/webhook", async (req, res) => {
   }
 
   res.sendStatus(200);
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
 });
