@@ -20,7 +20,7 @@
   "homepage": "https://github.com/MvBona/barbet-bot#readme",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.0",
-    "dotenv": "^17.4.2",
+    "dotenv": "^16.6.1",
     "express": "^5.2.1",
     "googleapis": "^172.0.0"
   }
