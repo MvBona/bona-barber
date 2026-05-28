@@ -45,17 +45,22 @@ Você deve responder APENAS com um JSON válido neste formato, sem texto adicion
   "resposta": "mensagem amigável para o cliente"
 }
 
-Regras:
-- "agendar": cliente quer marcar. Se tiver data e horário claros, preencha e confirme diretamente SEM pedir confirmação extra.
+Regras importantes:
+- Analise TODO o histórico da conversa para identificar a intenção correta.
+- Se o cliente disse "quero reagendar" e depois informou o horário atual, use acao "reagendar".
+- Se o cliente disse "quero cancelar" e depois informou o horário, use acao "cancelar".
+- Se o cliente disse "quero agendar" e depois informou o horário, use acao "agendar".
+- NUNCA perca o contexto da intenção original — se o cliente estava reagendando e informou o horário atual, mantenha acao "reagendar".
+- Se tiver o horário atual mas faltar o novo horário, use acao "reagendar" com horario_novo null e peça o novo horário na resposta.
+- Se o cliente disser "acho que estou às 11h" durante um reagendamento, interprete como horario: "11:00".
+- "agendar": cliente quer marcar. Se tiver data e horário claros, confirme diretamente SEM pedir confirmação extra.
 - "cancelar": cliente quer cancelar. Preencha data e horario se especificou.
 - "reagendar": cliente quer mudar horário. Preencha os campos atuais e novos.
 - "listar": cliente quer ver horários disponíveis.
-- "conversa": saudação ou dúvida geral.
-- Use o histórico da conversa para entender contexto — se o cliente disse "12" após ver os horários, entenda como "12:00".
+- "conversa": SOMENTE para saudações ou dúvidas que não envolvem agendamento.
 - Datas sempre no formato YYYY-MM-DD e horários HH:MM.
 - Resposta curta e informal — é WhatsApp. Use emojis com moderação.`;
 
-  // Adiciona a mensagem do cliente ao histórico
   addToHistory(phone, "user", message);
 
   const response = await client.messages.create({
@@ -69,7 +74,6 @@ Regras:
   const clean = text.replace(/```json|```/g, "").trim();
   const result = JSON.parse(clean);
 
-  // Adiciona a resposta ao histórico
   addToHistory(phone, "assistant", text);
 
   return result;
@@ -79,4 +83,8 @@ function clearHistory(phone) {
   conversations.delete(phone);
 }
 
-module.exports = { interpretMessage, clearHistory };
+function clearAllHistories() {
+  conversations.clear();
+}
+
+module.exports = { interpretMessage, clearHistory, clearAllHistories };
