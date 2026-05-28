@@ -20,6 +20,7 @@
   "homepage": "https://github.com/MvBona/barbet-bot#readme",
   "dependencies": {
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "googleapis": "^172.0.0"
   }
 }
