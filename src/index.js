@@ -1,21 +1,38 @@
-require("dotenv").config();
+console.log("=== INICIANDO ===");
+
 process.on("uncaughtException", (err) => {
   console.error("ERRO FATAL:", err.message);
   console.error(err.stack);
   process.exit(1);
 });
+
+process.on("unhandledRejection", (err) => {
+  console.error("PROMISE REJEITADA:", err.message);
+  console.error(err.stack);
+  process.exit(1);
+});
+
+console.log("carregando dotenv...");
+require("dotenv").config();
+
+console.log("carregando express...");
 const express = require("express");
+
+console.log("carregando sheets...");
 const {
   getAvailableSlots,
   bookSlot,
   cancelSlot,
   rescheduleSlot,
 } = require("./sheets");
+
+console.log("carregando ai...");
 const { interpretMessage } = require("./ai");
+
+console.log("todos os módulos carregados!");
 const app = express();
 
 app.use(express.json());
-
 const ZAPI_INSTANCE_ID = process.env.ZAPI_INSTANCE_ID;
 const ZAPI_TOKEN = process.env.ZAPI_TOKEN;
 const ZAPI_CLIENT_TOKEN = process.env.ZAPI_CLIENT_TOKEN;
@@ -114,3 +131,8 @@ app.post("/webhook", async (req, res) => {
 
   res.sendStatus(200);
 });
+
+const PORT = process.env.PORT || 3000
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`)
+})
