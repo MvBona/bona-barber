@@ -1,4 +1,9 @@
 require("dotenv").config();
+process.on("uncaughtException", (err) => {
+  console.error("ERRO FATAL:", err.message);
+  console.error(err.stack);
+  process.exit(1);
+});
 const express = require("express");
 const {
   getAvailableSlots,

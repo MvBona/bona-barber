@@ -1,7 +1,12 @@
-const { google } = require("googleapis");
+const { google } = require('googleapis')
 
-const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
-
+let credentials
+try {
+  credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS)
+} catch (e) {
+  console.error('Erro ao carregar GOOGLE_CREDENTIALS:', e.message)
+  process.exit(1)
+}
 const auth = new google.auth.GoogleAuth({
   credentials,
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
