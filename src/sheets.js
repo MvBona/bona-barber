@@ -35,7 +35,6 @@ async function getAvailableSlots() {
   });
 
   const rows = response.data.values || [];
-
   const available = rows
     .slice(1)
     .filter((row) => row[4] === "livre" && isSlotInFuture(row[0], row[1]));
@@ -47,13 +46,13 @@ async function getAvailableSlots() {
   }));
 }
 
-async function bookSlot(data, horario, nome, telefone) {
+async function bookSlot(data, horario, nome, telefone, telefoneExtra = "") {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A:F",
+    range: "Sheet1!A:G",
   });
 
   const rows = response.data.values || [];
@@ -69,23 +68,25 @@ async function bookSlot(data, horario, nome, telefone) {
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `Sheet1!A${rowIndex + 1}:F${rowIndex + 1}`,
+    range: `Sheet1!A${rowIndex + 1}:G${rowIndex + 1}`,
     valueInputOption: "RAW",
     requestBody: {
-      values: [[data, horario, nome, telefone, "agendado", criadoEm]],
+      values: [
+        [data, horario, nome, telefone, "agendado", criadoEm, telefoneExtra],
+      ],
     },
   });
 
   return true;
 }
 
-async function cancelSlot(data, horario, telefone) {
+async function updateSlotExtraPhone(data, horario, telefone, telefoneExtra) {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A:E",
+    range: "Sheet1!A:G",
   });
 
   const rows = response.data.values || [];
@@ -101,10 +102,40 @@ async function cancelSlot(data, horario, telefone) {
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `Sheet1!A${rowIndex + 1}:F${rowIndex + 1}`,
+    range: `Sheet1!G${rowIndex + 1}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [[telefoneExtra]] },
+  });
+
+  return true;
+}
+
+async function cancelSlot(data, horario, telefone) {
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "Sheet1!A:G",
+  });
+
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex(
+    (row) =>
+      row[0] === data &&
+      row[1] === horario &&
+      row[4] === "agendado" &&
+      row[3] === telefone,
+  );
+
+  if (rowIndex === -1) return false;
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `Sheet1!A${rowIndex + 1}:G${rowIndex + 1}`,
     valueInputOption: "RAW",
     requestBody: {
-      values: [[data, horario, "", "", "livre", ""]],
+      values: [[data, horario, "", "", "livre", "", ""]],
     },
   });
 
@@ -153,7 +184,7 @@ async function getAppointmentsForReminder(horasAntes) {
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A:F",
+    range: "Sheet1!A:G",
   });
 
   const rows = response.data.values || [];
@@ -161,41 +192,51 @@ async function getAppointmentsForReminder(horasAntes) {
     new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
   );
 
-  return rows
-    .slice(1)
-    .filter((row) => {
-      if (row[4] !== "agendado") return false;
-      if (!row[0] || !row[1] || !row[3]) return false;
+  const appointments = [];
 
-      const [year, month, day] = row[0].split("-").map(Number);
-      const [hour, minute] = row[1].split(":").map(Number);
-      const slotDate = new Date(year, month - 1, day, hour, minute);
+  rows.slice(1).forEach((row) => {
+    if (row[4] !== "agendado") return;
+    if (!row[0] || !row[1] || !row[3]) return;
 
-      const diffHoras = (slotDate - now) / (1000 * 60 * 60);
+    const [year, month, day] = row[0].split("-").map(Number);
+    const [hour, minute] = row[1].split(":").map(Number);
+    const slotDate = new Date(year, month - 1, day, hour, minute);
+    const diffHoras = (slotDate - now) / (1000 * 60 * 60);
+    const dentroJanela =
+      diffHoras >= horasAntes - 0.5 && diffHoras < horasAntes + 0.5;
 
-      const dentroJanela =
-        diffHoras >= horasAntes - 0.5 && diffHoras < horasAntes + 0.5;
+    if (!dentroJanela) return;
 
-      if (horasAntes === 24) {
-        if (!row[5]) return false;
-        const criadoEm = new Date(
-          row[5].split(", ")[0].split("/").reverse().join("-") +
-            "T" +
-            row[5].split(", ")[1],
-        );
-        const diasDeAntecedencia =
-          (slotDate - criadoEm) / (1000 * 60 * 60 * 24);
-        return dentroJanela && diasDeAntecedencia >= 2;
-      }
+    if (horasAntes === 24) {
+      if (!row[5]) return;
+      const criadoEm = new Date(
+        row[5].split(", ")[0].split("/").reverse().join("-") +
+          "T" +
+          row[5].split(", ")[1],
+      );
+      const diasDeAntecedencia = (slotDate - criadoEm) / (1000 * 60 * 60 * 24);
+      if (diasDeAntecedencia < 2) return;
+    }
 
-      return dentroJanela;
-    })
-    .map((row) => ({
+    appointments.push({
       data: row[0],
       horario: row[1],
       nome: row[2],
       telefone: row[3],
-    }));
+    });
+
+    // ✅ MUDANÇA: telefone extra também recebe lembrete
+    if (row[6] && row[6].trim() !== "") {
+      appointments.push({
+        data: row[0],
+        horario: row[1],
+        nome: row[2],
+        telefone: row[6].trim(),
+      });
+    }
+  });
+
+  return appointments;
 }
 
 module.exports = {
@@ -205,4 +246,5 @@ module.exports = {
   rescheduleSlot,
   getClientAppointments,
   getAppointmentsForReminder,
+  updateSlotExtraPhone,
 };

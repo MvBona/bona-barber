@@ -26,10 +26,17 @@ const {
   cancelSlot,
   rescheduleSlot,
   getAppointmentsForReminder,
+  updateSlotExtraPhone,
 } = require("./sheets");
 
 console.log("carregando ai...");
-const { interpretMessage, clearAllHistories } = require("./ai");
+const {
+  interpretMessage,
+  clearAllHistories,
+  setWaitingForContact,
+  getWaitingForContact,
+  clearWaitingForContact,
+} = require("./ai");
 
 console.log("carregando transcribe...");
 const { transcribeAudio } = require("./transcribe");
@@ -48,7 +55,6 @@ const ZAPI_CLIENT_TOKEN = process.env.ZAPI_CLIENT_TOKEN;
 
 async function sendMessage(phone, message) {
   const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`;
-
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -57,7 +63,6 @@ async function sendMessage(phone, message) {
     },
     body: JSON.stringify({ phone, message }),
   });
-
   const data = await response.json();
   console.log("Resposta enviada:", data);
 }
@@ -68,13 +73,11 @@ async function sendReminders(horasAntes) {
     console.log(
       `Lembretes ${horasAntes}h: ${appointments.length} agendamento(s) encontrado(s)`,
     );
-
     for (const appt of appointments) {
       const msg =
         horasAntes === 24
-          ? `Olá ${appt.nome}! Lembrete: você tem um horário marcado amanhã às ${appt.horario} na ${process.env.BARBERSHOP_NAME || "barbearia"}. Até lá!`
-          : `Olá ${appt.nome}! Seu horário na ${process.env.BARBERSHOP_NAME || "barbearia"} é em 2 horas, às ${appt.horario}. Te esperamos!`;
-
+          ? `Lembrete: você tem horário amanhã às ${appt.horario} na ${process.env.BARBERSHOP_NAME || "barbearia"}.`
+          : `Seu horário é em 2 horas, às ${appt.horario} na ${process.env.BARBERSHOP_NAME || "barbearia"}.`;
       await sendMessage(appt.telefone, msg);
       console.log(
         `Lembrete ${horasAntes}h enviado para ${appt.nome} (${appt.telefone})`,
@@ -97,8 +100,13 @@ app.post("/webhook", async (req, res) => {
   const phone = body.phone;
   const name = body.senderName;
   let text = null;
+  let contactPhone = null;
 
-  if (body.text?.message) {
+  // ✅ MUDANÇA: detecta contato compartilhado
+  if (body.contact?.phones?.length > 0) {
+    contactPhone = body.contact.phones[0].phone.replace(/\D/g, "");
+    console.log(`Contato recebido de ${name}: ${contactPhone}`);
+  } else if (body.text?.message) {
     text = body.text.message;
     console.log(`Texto de ${name} (${phone}): ${text}`);
   } else if (body.audio?.audioUrl) {
@@ -112,6 +120,41 @@ app.post("/webhook", async (req, res) => {
         phone,
         "Desculpe, não consegui entender o áudio. Pode digitar sua mensagem? 😅",
       );
+      return res.sendStatus(200);
+    }
+  }
+
+  // ✅ MUDANÇA: trata contato ou número recebido enquanto aguarda
+  const waiting = getWaitingForContact(phone);
+
+  if (waiting) {
+    let extraPhone = null;
+
+    if (contactPhone) {
+      extraPhone = contactPhone;
+    } else if (text) {
+      // Tenta extrair número digitado
+      const digits = text.replace(/\D/g, "");
+      if (digits.length >= 10) extraPhone = digits;
+    }
+
+    if (extraPhone) {
+      await updateSlotExtraPhone(
+        waiting.data,
+        waiting.horario,
+        phone,
+        extraPhone,
+      );
+      clearWaitingForContact(phone);
+      await sendMessage(
+        phone,
+        `Certo! Vou lembrar seu amigo também no ${extraPhone}. ✅`,
+      );
+      return res.sendStatus(200);
+    } else {
+      // Cliente não quis passar o número
+      clearWaitingForContact(phone);
+      await sendMessage(phone, "Ok, sem problemas!");
       return res.sendStatus(200);
     }
   }
@@ -133,6 +176,15 @@ app.post("/webhook", async (req, res) => {
         );
       } else {
         await sendMessage(phone, result.resposta);
+        // ✅ MUDANÇA: pergunta se quer avisar outra pessoa
+        await sendMessage(
+          phone,
+          "Quer que eu avise alguém também? Manda o contato ou digita o número, senão é só ignorar. 😊",
+        );
+        setWaitingForContact(phone, {
+          data: result.data,
+          horario: result.horario,
+        });
       }
     } else if (result.acao === "cancelar" && result.data && result.horario) {
       const cancelled = await cancelSlot(result.data, result.horario, phone);
@@ -194,7 +246,6 @@ schedule.schedule(
 schedule.schedule("0 10 * * *", () => sendReminders(24), {
   timezone: "America/Sao_Paulo",
 });
-
 schedule.schedule("0 * * * *", () => sendReminders(2), {
   timezone: "America/Sao_Paulo",
 });
