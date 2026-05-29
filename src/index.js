@@ -25,6 +25,7 @@ const {
   bookSlot,
   cancelSlot,
   rescheduleSlot,
+  getAppointmentsForReminder,
 } = require("./sheets");
 
 console.log("carregando ai...");
@@ -32,6 +33,9 @@ const { interpretMessage, clearAllHistories } = require("./ai");
 
 console.log("carregando transcribe...");
 const { transcribeAudio } = require("./transcribe");
+
+console.log("carregando scheduler...");
+const { generateWeeklySlots } = require("./scheduler");
 
 console.log("todos os módulos carregados!");
 const app = express();
@@ -56,6 +60,29 @@ async function sendMessage(phone, message) {
 
   const data = await response.json();
   console.log("Resposta enviada:", data);
+}
+
+async function sendReminders(horasAntes) {
+  try {
+    const appointments = await getAppointmentsForReminder(horasAntes);
+    console.log(
+      `Lembretes ${horasAntes}h: ${appointments.length} agendamento(s) encontrado(s)`,
+    );
+
+    for (const appt of appointments) {
+      const msg =
+        horasAntes === 24
+          ? `Olá ${appt.nome}! Lembrete: você tem um horário marcado amanhã às ${appt.horario} na ${process.env.BARBERSHOP_NAME || "barbearia"}. Até lá!`
+          : `Olá ${appt.nome}! Seu horário na ${process.env.BARBERSHOP_NAME || "barbearia"} é em 2 horas, às ${appt.horario}. Te esperamos!`;
+
+      await sendMessage(appt.telefone, msg);
+      console.log(
+        `Lembrete ${horasAntes}h enviado para ${appt.nome} (${appt.telefone})`,
+      );
+    }
+  } catch (error) {
+    console.error(`Erro ao enviar lembretes ${horasAntes}h:`, error.message);
+  }
 }
 
 app.get("/", (req, res) => {
@@ -154,7 +181,6 @@ app.post("/webhook", async (req, res) => {
   res.sendStatus(200);
 });
 
-// Limpa histórico de todas as conversas todo dia à 01h
 schedule.schedule(
   "0 1 * * *",
   () => {
@@ -162,9 +188,26 @@ schedule.schedule(
     clearAllHistories();
     console.log("Histórico limpo!");
   },
-  {
-    timezone: "America/Sao_Paulo",
+  { timezone: "America/Sao_Paulo" },
+);
+
+schedule.schedule("0 10 * * *", () => sendReminders(24), {
+  timezone: "America/Sao_Paulo",
+});
+
+schedule.schedule("0 * * * *", () => sendReminders(2), {
+  timezone: "America/Sao_Paulo",
+});
+
+schedule.schedule(
+  "0 0 * * 0",
+  () => {
+    console.log("Gerando horários da semana seguinte...");
+    generateWeeklySlots()
+      .then(() => console.log("Horários gerados com sucesso!"))
+      .catch((err) => console.error("Erro ao gerar horários:", err.message));
   },
+  { timezone: "America/Sao_Paulo" },
 );
 
 const PORT = process.env.PORT || 3000;

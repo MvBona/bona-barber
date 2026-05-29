@@ -53,7 +53,7 @@ async function bookSlot(data, horario, nome, telefone) {
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A:E",
+    range: "Sheet1!A:F",
   });
 
   const rows = response.data.values || [];
@@ -63,12 +63,16 @@ async function bookSlot(data, horario, nome, telefone) {
 
   if (rowIndex === -1) return false;
 
+  const criadoEm = new Date().toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+  });
+
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `Sheet1!A${rowIndex + 1}:E${rowIndex + 1}`,
+    range: `Sheet1!A${rowIndex + 1}:F${rowIndex + 1}`,
     valueInputOption: "RAW",
     requestBody: {
-      values: [[data, horario, nome, telefone, "agendado"]],
+      values: [[data, horario, nome, telefone, "agendado", criadoEm]],
     },
   });
 
@@ -97,10 +101,10 @@ async function cancelSlot(data, horario, telefone) {
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `Sheet1!A${rowIndex + 1}:E${rowIndex + 1}`,
+    range: `Sheet1!A${rowIndex + 1}:F${rowIndex + 1}`,
     valueInputOption: "RAW",
     requestBody: {
-      values: [[data, horario, "", "", "livre"]],
+      values: [[data, horario, "", "", "livre", ""]],
     },
   });
 
@@ -143,10 +147,62 @@ async function getClientAppointments(telefone) {
     .map((row) => ({ data: row[0], horario: row[1] }));
 }
 
+async function getAppointmentsForReminder(horasAntes) {
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "Sheet1!A:F",
+  });
+
+  const rows = response.data.values || [];
+  const now = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
+  );
+
+  return rows
+    .slice(1)
+    .filter((row) => {
+      if (row[4] !== "agendado") return false;
+      if (!row[0] || !row[1] || !row[3]) return false;
+
+      const [year, month, day] = row[0].split("-").map(Number);
+      const [hour, minute] = row[1].split(":").map(Number);
+      const slotDate = new Date(year, month - 1, day, hour, minute);
+
+      const diffHoras = (slotDate - now) / (1000 * 60 * 60);
+
+      const dentroJanela =
+        diffHoras >= horasAntes - 0.5 && diffHoras < horasAntes + 0.5;
+
+      if (horasAntes === 24) {
+        if (!row[5]) return false;
+        const criadoEm = new Date(
+          row[5].split(", ")[0].split("/").reverse().join("-") +
+            "T" +
+            row[5].split(", ")[1],
+        );
+        const diasDeAntecedencia =
+          (slotDate - criadoEm) / (1000 * 60 * 60 * 24);
+        return dentroJanela && diasDeAntecedencia >= 2;
+      }
+
+      return dentroJanela;
+    })
+    .map((row) => ({
+      data: row[0],
+      horario: row[1],
+      nome: row[2],
+      telefone: row[3],
+    }));
+}
+
 module.exports = {
   getAvailableSlots,
   bookSlot,
   cancelSlot,
   rescheduleSlot,
   getClientAppointments,
+  getAppointmentsForReminder,
 };
