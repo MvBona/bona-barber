@@ -46,6 +46,7 @@ app.use(express.json());
 const ZAPI_INSTANCE_ID = process.env.ZAPI_INSTANCE_ID;
 const ZAPI_TOKEN = process.env.ZAPI_TOKEN;
 const ZAPI_CLIENT_TOKEN = process.env.ZAPI_CLIENT_TOKEN;
+const BARBERSHOP_PHONE = process.env.BARBERSHOP_PHONE;
 
 async function sendMessage(phone, message) {
   const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`;
@@ -59,6 +60,15 @@ async function sendMessage(phone, message) {
   });
   const data = await response.json();
   console.log("Resposta enviada:", data);
+}
+
+async function notifyBarber(message) {
+  if (!BARBERSHOP_PHONE) return;
+  try {
+    await sendMessage(BARBERSHOP_PHONE, message);
+  } catch (error) {
+    console.error("Erro ao notificar barbeiro:", error.message);
+  }
 }
 
 async function sendReminders(horasAntes) {
@@ -109,6 +119,9 @@ app.post("/webhook", async (req, res) => {
         phone,
         "Desculpe, não consegui entender o áudio. Pode digitar sua mensagem? 😅",
       );
+      await notifyBarber(
+        `⚠️ Problema ao processar áudio de ${name} (${phone})`,
+      );
       return res.sendStatus(200);
     }
   }
@@ -137,6 +150,9 @@ app.post("/webhook", async (req, res) => {
           );
         } else {
           await sendMessage(phone, result.resposta);
+          await notifyBarber(
+            `✅ Agendamento: ${name} — ${result.data} às ${result.horario}`,
+          );
         }
       }
     } else if (result.acao === "cancelar" && result.data && result.horario) {
@@ -148,6 +164,9 @@ app.post("/webhook", async (req, res) => {
         );
       } else {
         await sendMessage(phone, result.resposta);
+        await notifyBarber(
+          `❌ Cancelamento: ${name} — ${result.data} às ${result.horario}`,
+        );
       }
     } else if (
       result.acao === "reagendar" &&
@@ -171,6 +190,9 @@ app.post("/webhook", async (req, res) => {
         );
       } else {
         await sendMessage(phone, result.resposta);
+        await notifyBarber(
+          `🔄 Reagendamento: ${name} — de ${result.data} às ${result.horario} para ${result.data_nova} às ${result.horario_novo}`,
+        );
       }
     } else {
       await sendMessage(phone, result.resposta);
@@ -180,6 +202,9 @@ app.post("/webhook", async (req, res) => {
     await sendMessage(
       phone,
       "Desculpe, tive um problema. Tenta de novo em instantes!",
+    );
+    await notifyBarber(
+      `⚠️ Erro ao atender ${name} (${phone}). Pode precisar de atenção manual.`,
     );
   }
 
