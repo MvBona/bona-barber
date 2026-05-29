@@ -46,13 +46,30 @@ async function getAvailableSlots() {
   }));
 }
 
-async function bookSlot(data, horario, nome, telefone, telefoneExtra = "") {
+async function countClientAppointmentsOnDay(telefone, data) {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A:G",
+    range: "Sheet1!A:F",
+  });
+
+  const rows = response.data.values || [];
+  return rows
+    .slice(1)
+    .filter(
+      (row) => row[0] === data && row[3] === telefone && row[4] === "agendado",
+    ).length;
+}
+
+async function bookSlot(data, horario, nome, telefone) {
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "Sheet1!A:F",
   });
 
   const rows = response.data.values || [];
@@ -68,43 +85,11 @@ async function bookSlot(data, horario, nome, telefone, telefoneExtra = "") {
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `Sheet1!A${rowIndex + 1}:G${rowIndex + 1}`,
+    range: `Sheet1!A${rowIndex + 1}:F${rowIndex + 1}`,
     valueInputOption: "RAW",
     requestBody: {
-      values: [
-        [data, horario, nome, telefone, "agendado", criadoEm, telefoneExtra],
-      ],
+      values: [[data, horario, nome, telefone, "agendado", criadoEm]],
     },
-  });
-
-  return true;
-}
-
-async function updateSlotExtraPhone(data, horario, telefone, telefoneExtra) {
-  const client = await auth.getClient();
-  const sheets = google.sheets({ version: "v4", auth: client });
-
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A:G",
-  });
-
-  const rows = response.data.values || [];
-  const rowIndex = rows.findIndex(
-    (row) =>
-      row[0] === data &&
-      row[1] === horario &&
-      row[4] === "agendado" &&
-      row[3] === telefone,
-  );
-
-  if (rowIndex === -1) return false;
-
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `Sheet1!G${rowIndex + 1}`,
-    valueInputOption: "RAW",
-    requestBody: { values: [[telefoneExtra]] },
   });
 
   return true;
@@ -116,7 +101,7 @@ async function cancelSlot(data, horario, telefone) {
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A:G",
+    range: "Sheet1!A:F",
   });
 
   const rows = response.data.values || [];
@@ -132,10 +117,10 @@ async function cancelSlot(data, horario, telefone) {
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `Sheet1!A${rowIndex + 1}:G${rowIndex + 1}`,
+    range: `Sheet1!A${rowIndex + 1}:F${rowIndex + 1}`,
     valueInputOption: "RAW",
     requestBody: {
-      values: [[data, horario, "", "", "livre", "", ""]],
+      values: [[data, horario, "", "", "livre", ""]],
     },
   });
 
@@ -184,7 +169,7 @@ async function getAppointmentsForReminder(horasAntes) {
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A:G",
+    range: "Sheet1!A:F",
   });
 
   const rows = response.data.values || [];
@@ -224,16 +209,6 @@ async function getAppointmentsForReminder(horasAntes) {
       nome: row[2],
       telefone: row[3],
     });
-
-    // ✅ MUDANÇA: telefone extra também recebe lembrete
-    if (row[6] && row[6].trim() !== "") {
-      appointments.push({
-        data: row[0],
-        horario: row[1],
-        nome: row[2],
-        telefone: row[6].trim(),
-      });
-    }
   });
 
   return appointments;
@@ -246,5 +221,5 @@ module.exports = {
   rescheduleSlot,
   getClientAppointments,
   getAppointmentsForReminder,
-  updateSlotExtraPhone,
+  countClientAppointmentsOnDay,
 };

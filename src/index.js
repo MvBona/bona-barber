@@ -26,17 +26,11 @@ const {
   cancelSlot,
   rescheduleSlot,
   getAppointmentsForReminder,
-  updateSlotExtraPhone,
+  countClientAppointmentsOnDay,
 } = require("./sheets");
 
 console.log("carregando ai...");
-const {
-  interpretMessage,
-  clearAllHistories,
-  setWaitingForContact,
-  getWaitingForContact,
-  clearWaitingForContact,
-} = require("./ai");
+const { interpretMessage, clearAllHistories } = require("./ai");
 
 console.log("carregando transcribe...");
 const { transcribeAudio } = require("./transcribe");
@@ -100,13 +94,8 @@ app.post("/webhook", async (req, res) => {
   const phone = body.phone;
   const name = body.senderName;
   let text = null;
-  let contactPhone = null;
 
-  // ✅ MUDANÇA: detecta contato compartilhado
-  if (body.contact?.phones?.length > 0) {
-    contactPhone = body.contact.phones[0].phone.replace(/\D/g, "");
-    console.log(`Contato recebido de ${name}: ${contactPhone}`);
-  } else if (body.text?.message) {
+  if (body.text?.message) {
     text = body.text.message;
     console.log(`Texto de ${name} (${phone}): ${text}`);
   } else if (body.audio?.audioUrl) {
@@ -124,41 +113,6 @@ app.post("/webhook", async (req, res) => {
     }
   }
 
-  // ✅ MUDANÇA: trata contato ou número recebido enquanto aguarda
-  const waiting = getWaitingForContact(phone);
-
-  if (waiting) {
-    let extraPhone = null;
-
-    if (contactPhone) {
-      extraPhone = contactPhone;
-    } else if (text) {
-      // Tenta extrair número digitado
-      const digits = text.replace(/\D/g, "");
-      if (digits.length >= 10) extraPhone = digits;
-    }
-
-    if (extraPhone) {
-      await updateSlotExtraPhone(
-        waiting.data,
-        waiting.horario,
-        phone,
-        extraPhone,
-      );
-      clearWaitingForContact(phone);
-      await sendMessage(
-        phone,
-        `Certo! Vou lembrar seu amigo também no ${extraPhone}. ✅`,
-      );
-      return res.sendStatus(200);
-    } else {
-      // Cliente não quis passar o número
-      clearWaitingForContact(phone);
-      await sendMessage(phone, "Ok, sem problemas!");
-      return res.sendStatus(200);
-    }
-  }
-
   if (!text) return res.sendStatus(200);
 
   try {
@@ -168,23 +122,22 @@ app.post("/webhook", async (req, res) => {
     console.log("Intenção identificada:", result);
 
     if (result.acao === "agendar" && result.data && result.horario) {
-      const booked = await bookSlot(result.data, result.horario, name, phone);
-      if (!booked) {
+      const count = await countClientAppointmentsOnDay(phone, result.data);
+      if (count >= 2) {
         await sendMessage(
           phone,
-          `Ops! O horário ${result.horario} não está mais disponível. Escolhe outro? 😅`,
+          "Você já tem 2 horários marcados nesse dia, que é o limite. Cancela um se quiser trocar.",
         );
       } else {
-        await sendMessage(phone, result.resposta);
-        // ✅ MUDANÇA: pergunta se quer avisar outra pessoa
-        await sendMessage(
-          phone,
-          "Quer que eu avise alguém também? Manda o contato ou digita o número, senão é só ignorar. 😊",
-        );
-        setWaitingForContact(phone, {
-          data: result.data,
-          horario: result.horario,
-        });
+        const booked = await bookSlot(result.data, result.horario, name, phone);
+        if (!booked) {
+          await sendMessage(
+            phone,
+            `Ops! O horário ${result.horario} não está mais disponível. Escolhe outro? 😅`,
+          );
+        } else {
+          await sendMessage(phone, result.resposta);
+        }
       }
     } else if (result.acao === "cancelar" && result.data && result.horario) {
       const cancelled = await cancelSlot(result.data, result.horario, phone);

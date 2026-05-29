@@ -2,7 +2,6 @@ const Anthropic = require("@anthropic-ai/sdk");
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const conversations = new Map();
 const lastGreetingPeriod = new Map();
-const waitingForContact = new Map();
 
 function getPeriod() {
   const hora = new Date().toLocaleString("pt-BR", {
@@ -41,18 +40,6 @@ function addToHistory(phone, role, content) {
   }
 }
 
-function setWaitingForContact(phone, agendamento) {
-  waitingForContact.set(phone, agendamento);
-}
-
-function getWaitingForContact(phone) {
-  return waitingForContact.get(phone) || null;
-}
-
-function clearWaitingForContact(phone) {
-  waitingForContact.delete(phone);
-}
-
 async function interpretMessage(message, availableSlots, clientName, phone) {
   const slotsText = availableSlots
     .map((s) => `${s.data} às ${s.horario}`)
@@ -77,7 +64,6 @@ Responda APENAS com um JSON válido neste formato, sem texto adicional:
   "horario": "14:00" ou null,
   "data_nova": "2026-05-29" ou null,
   "horario_novo": "14:00" ou null,
-  "nome_terceiro": null,
   "resposta": "mensagem para o cliente"
 }
 
@@ -89,8 +75,6 @@ Regras importantes:
 - NUNCA perca o contexto da intenção original.
 - Se tiver o horário atual mas faltar o novo horário, use acao "reagendar" com horario_novo null e peça o novo horário.
 - "agendar": cliente quer marcar. Se tiver data e horário claros, confirme diretamente SEM pedir confirmação extra.
-- Se o cliente mencionar que está agendando PRA OUTRA PESSOA (amigo, familiar), preencha "nome_terceiro" com o nome dessa pessoa se informado.
-- Se o cliente pedir DOIS horários seguidos para ele e um amigo, use acao "agendar" apenas para o primeiro horário e na resposta confirme o primeiro e diga que vai precisar de uma segunda conversa para o amigo, OU pergunte os dados do amigo.
 - "cancelar": cliente quer cancelar. Preencha data e horario se especificou.
 - "reagendar": cliente quer mudar horário. Preencha os campos atuais e novos.
 - "listar": cliente quer ver horários disponíveis.
@@ -127,14 +111,6 @@ function clearHistory(phone) {
 function clearAllHistories() {
   conversations.clear();
   lastGreetingPeriod.clear();
-  waitingForContact.clear();
 }
 
-module.exports = {
-  interpretMessage,
-  clearHistory,
-  clearAllHistories,
-  setWaitingForContact,
-  getWaitingForContact,
-  clearWaitingForContact,
-};
+module.exports = { interpretMessage, clearHistory, clearAllHistories };
