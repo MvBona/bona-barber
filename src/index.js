@@ -30,6 +30,9 @@ const {
 console.log("carregando ai...");
 const { interpretMessage, clearAllHistories } = require("./ai");
 
+console.log("carregando transcribe...");
+const { transcribeAudio } = require("./transcribe");
+
 console.log("todos os módulos carregados!");
 const app = express();
 
@@ -63,13 +66,30 @@ app.post("/webhook", async (req, res) => {
   const body = req.body;
 
   if (body.fromMe) return res.sendStatus(200);
-  if (!body.text?.message) return res.sendStatus(200);
 
   const phone = body.phone;
-  const text = body.text.message;
   const name = body.senderName;
+  let text = null;
 
-  console.log(`Mensagem de ${name} (${phone}): ${text}`);
+  if (body.text?.message) {
+    text = body.text.message;
+    console.log(`Texto de ${name} (${phone}): ${text}`);
+  } else if (body.audio?.audioUrl) {
+    console.log(`Áudio recebido de ${name} (${phone}), transcrevendo...`);
+    try {
+      text = await transcribeAudio(body.audio.audioUrl);
+      console.log(`Transcrição: ${text}`);
+    } catch (error) {
+      console.error("Erro ao transcrever áudio:", error.message);
+      await sendMessage(
+        phone,
+        "Desculpe, não consegui entender o áudio. Pode digitar sua mensagem? 😅",
+      );
+      return res.sendStatus(200);
+    }
+  }
+
+  if (!text) return res.sendStatus(200);
 
   try {
     const slots = await getAvailableSlots();

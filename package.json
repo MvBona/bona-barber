@@ -23,6 +23,7 @@
     "dotenv": "^16.6.1",
     "express": "^5.2.1",
     "googleapis": "^172.0.0",
-    "node-cron": "^4.2.1"
+    "node-cron": "^4.2.1",
+    "openai": "^6.39.1"
   }
 }
