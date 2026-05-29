@@ -1,9 +1,29 @@
 const Anthropic = require("@anthropic-ai/sdk");
-
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-// Memória de conversas por cliente { telefone: [mensagens] }
 const conversations = new Map();
+const lastGreetingPeriod = new Map();
+
+function getPeriod() {
+  const hora = new Date().toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    hour12: false,
+  });
+  const h = parseInt(hora);
+  if (h >= 5 && h < 12) return "manha";
+  if (h >= 12 && h < 18) return "tarde";
+  return "noite";
+}
+
+function shouldGreet(phone) {
+  const current = getPeriod();
+  const last = lastGreetingPeriod.get(phone);
+  if (current !== last) {
+    lastGreetingPeriod.set(phone, current);
+    return true;
+  }
+  return false;
+}
 
 function getHistory(phone) {
   if (!conversations.has(phone)) {
@@ -15,8 +35,6 @@ function getHistory(phone) {
 function addToHistory(phone, role, content) {
   const history = getHistory(phone);
   history.push({ role, content });
-
-  // Mantém só as últimas 10 mensagens pra não explodir o contexto
   if (history.length > 10) {
     conversations.set(phone, history.slice(-10));
   }
@@ -26,6 +44,10 @@ async function interpretMessage(message, availableSlots, clientName, phone) {
   const slotsText = availableSlots
     .map((s) => `${s.data} às ${s.horario}`)
     .join("\n");
+
+  const greetInstruction = shouldGreet(phone)
+    ? `- Cumprimente o cliente com bom dia/tarde/noite no início da resposta.`
+    : `- NÃO cumprimente — já houve interação neste período. Vá direto ao ponto.`;
 
   const systemPrompt = `Você é o assistente virtual de uma barbearia chamada "${process.env.BARBERSHOP_NAME || "Barbearia"}". 
 Seu papel é ajudar clientes a agendar, cancelar e reagendar horários de forma simpática e informal.
@@ -56,10 +78,11 @@ Regras importantes:
 - "agendar": cliente quer marcar. Se tiver data e horário claros, confirme diretamente SEM pedir confirmação extra.
 - "cancelar": cliente quer cancelar. Preencha data e horario se especificou.
 - "reagendar": cliente quer mudar horário. Preencha os campos atuais e novos.
-- "listar": cliente quer ver horários disponíveis.
+- "listar": cliente quer ver horários disponícios.
 - "conversa": SOMENTE para saudações ou dúvidas que não envolvem agendamento.
 - Datas sempre no formato YYYY-MM-DD e horários HH:MM.
-- Resposta curta e informal — é WhatsApp. Use emojis com moderação.`;
+- Resposta curta e informal — é WhatsApp. Use emojis com moderação.
+- Sobre saudações: ${greetInstruction}`;
 
   addToHistory(phone, "user", message);
 
@@ -85,6 +108,7 @@ function clearHistory(phone) {
 
 function clearAllHistories() {
   conversations.clear();
+  lastGreetingPeriod.clear();
 }
 
 module.exports = { interpretMessage, clearHistory, clearAllHistories };
