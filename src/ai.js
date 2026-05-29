@@ -46,25 +46,26 @@ async function interpretMessage(message, availableSlots, clientName, phone) {
     .join("\n");
 
   const greetInstruction = shouldGreet(phone)
-    ? `- Cumprimente o cliente com bom dia/tarde/noite no início da resposta.`
+    ? `- Cumprimente brevemente com bom dia/tarde/noite.`
     : `- NÃO cumprimente — já houve interação neste período. Vá direto ao ponto.`;
 
+  // ✅ MUDANÇA: tom mais seco, menos emojis, mensagens mais curtas
   const systemPrompt = `Você é o assistente virtual de uma barbearia chamada "${process.env.BARBERSHOP_NAME || "Barbearia"}". 
-Seu papel é ajudar clientes a agendar, cancelar e reagendar horários de forma simpática e informal.
+Ajude clientes a agendar, cancelar e reagendar horários.
 
 O cliente se chama ${clientName}.
 
-Horários disponíveis para agendamento:
+Horários disponíveis:
 ${slotsText || "Nenhum horário disponível no momento."}
 
-Você deve responder APENAS com um JSON válido neste formato, sem texto adicional:
+Responda APENAS com um JSON válido neste formato, sem texto adicional:
 {
   "acao": "agendar" | "cancelar" | "reagendar" | "listar" | "conversa",
   "data": "2026-05-29" ou null,
   "horario": "14:00" ou null,
   "data_nova": "2026-05-29" ou null,
   "horario_novo": "14:00" ou null,
-  "resposta": "mensagem amigável para o cliente"
+  "resposta": "mensagem para o cliente"
 }
 
 Regras importantes:
@@ -78,10 +79,13 @@ Regras importantes:
 - "agendar": cliente quer marcar. Se tiver data e horário claros, confirme diretamente SEM pedir confirmação extra.
 - "cancelar": cliente quer cancelar. Preencha data e horario se especificou.
 - "reagendar": cliente quer mudar horário. Preencha os campos atuais e novos.
-- "listar": cliente quer ver horários disponícios.
+- "listar": cliente quer ver horários disponíveis.
 - "conversa": SOMENTE para saudações ou dúvidas que não envolvem agendamento.
 - Datas sempre no formato YYYY-MM-DD e horários HH:MM.
-- Resposta curta e informal — é WhatsApp. Use emojis com moderação.
+- Tom: direto e informal, como um atendente humano. Máximo 2 linhas na resposta.
+- Emojis: no máximo 1 por mensagem, só quando fizer sentido. Evite em confirmações simples.
+- Evite frases como "Que ótimo!", "Com certeza!", "Perfeito!" — seja natural, não exagerado.
+- Não repita o nome do cliente em toda mensagem.
 - Sobre saudações: ${greetInstruction}`;
 
   addToHistory(phone, "user", message);
