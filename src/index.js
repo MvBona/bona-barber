@@ -93,37 +93,70 @@ async function sendReminders(horasAntes) {
   }
 }
 
+// ✅ MUDANÇA: aceita linguagem natural nos comandos
 async function processBarberCommand(text) {
-  const normalized = text.toLowerCase().trim();
+  const normalized = text
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, ""); // remove acentos
 
-  // Padrão: "bloquear 15/08" ou "bloquear 15/08/2026"
-  const singleDay = normalized.match(
-    /bloquear\s+(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/,
+  // Extrai números do texto
+  const numbers = normalized.match(/\d+/g) || [];
+
+  const hasBlock =
+    normalized.includes("bloquear") ||
+    normalized.includes("bloqueia") ||
+    normalized.includes("bloqueie") ||
+    normalized.includes("fechar") ||
+    normalized.includes("fecha") ||
+    normalized.includes("cancelar dia") ||
+    normalized.includes("folga");
+
+  if (!hasBlock) return null;
+
+  const currentYear = new Date().getFullYear();
+
+  // Tenta extrair período: "10 ao 22 de junho", "10/06 ao 22/06"
+  const periodMatch = normalized.match(
+    /(\d{1,2})[\/\s](?:ao?|até|a)\s*(\d{1,2})[\/\s](?:do\s+)?(\d{1,2}|janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:[\/\s](\d{4}))?/,
   );
-  if (singleDay) {
-    const day = singleDay[1].padStart(2, "0");
-    const month = singleDay[2].padStart(2, "0");
-    const year = singleDay[3] || new Date().getFullYear();
+
+  // Tenta extrair dia único: "dia 10 do 6", "10/06", "dia 10 de junho"
+  const singleMatch = normalized.match(
+    /(?:dia\s+)?(\d{1,2})[\/\s](?:do\s+|de\s+)?(\d{1,2}|janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:[\/\s](\d{4}))?/,
+  );
+
+  const monthNames = {
+    janeiro: "01",
+    fevereiro: "02",
+    marco: "03",
+    abril: "04",
+    maio: "05",
+    junho: "06",
+    julho: "07",
+    agosto: "08",
+    setembro: "09",
+    outubro: "10",
+    novembro: "11",
+    dezembro: "12",
+  };
+
+  function parseMonth(m) {
+    if (/^\d+$/.test(m)) return m.padStart(2, "0");
+    return monthNames[m] || null;
+  }
+
+  if (singleMatch) {
+    const day = singleMatch[1].padStart(2, "0");
+    const month = parseMonth(singleMatch[2]);
+    const year = singleMatch[3] || currentYear;
+    if (!month) return null;
     const data = `${year}-${month}-${day}`;
     const count = await blockDay(data);
     return count > 0
       ? `✅ Dia ${day}/${month} bloqueado. ${count} horário(s) bloqueado(s).`
       : `Não encontrei horários disponíveis em ${day}/${month}.`;
-  }
-
-  // Padrão: "bloquear 15/08 ao 22/08" ou "bloquear 15/08 a 22/08"
-  const period = normalized.match(
-    /bloquear\s+(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\s+a[o]?\s+(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/,
-  );
-  if (period) {
-    const year1 = period[3] || new Date().getFullYear();
-    const year2 = period[6] || new Date().getFullYear();
-    const dataInicio = `${year1}-${period[2].padStart(2, "0")}-${period[1].padStart(2, "0")}`;
-    const dataFim = `${year2}-${period[5].padStart(2, "0")}-${period[4].padStart(2, "0")}`;
-    const count = await blockPeriod(dataInicio, dataFim);
-    return count > 0
-      ? `✅ Período bloqueado. ${count} horário(s) bloqueado(s).`
-      : `Não encontrei horários no período informado.`;
   }
 
   return null;
