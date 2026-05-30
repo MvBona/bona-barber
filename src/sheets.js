@@ -15,6 +15,34 @@ const auth = new google.auth.GoogleAuth({
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 
+function getSheetName(data) {
+  const [year, month] = data.split("-");
+  return `${year}-${month}`;
+}
+
+function getCurrentSheetName() {
+  const now = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
+  );
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+function getRelevantSheetNames() {
+  const now = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
+  );
+  const sheets = [];
+  for (let i = 0; i <= 1; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    sheets.push(`${year}-${month}`);
+  }
+  return sheets;
+}
+
 function isSlotInFuture(data, horario) {
   const now = new Date(
     new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
@@ -28,48 +56,64 @@ function isSlotInFuture(data, horario) {
 async function getAvailableSlots() {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
+  const sheetNames = getRelevantSheetNames();
+  const allSlots = [];
 
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A:E",
-  });
+  for (const sheetName of sheetNames) {
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${sheetName}!A:E`,
+      });
+      const rows = response.data.values || [];
+      const available = rows
+        .slice(1)
+        .filter((row) => row[4] === "livre" && isSlotInFuture(row[0], row[1]));
+      allSlots.push(
+        ...available.map((row) => ({
+          data: row[0],
+          horario: row[1],
+          status: row[4],
+        })),
+      );
+    } catch (e) {
+      // Aba pode não existir ainda — ignora
+    }
+  }
 
-  const rows = response.data.values || [];
-  const available = rows
-    .slice(1)
-    .filter((row) => row[4] === "livre" && isSlotInFuture(row[0], row[1]));
-
-  return available.map((row) => ({
-    data: row[0],
-    horario: row[1],
-    status: row[4],
-  }));
+  return allSlots;
 }
 
 async function countClientAppointmentsOnDay(telefone, data) {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
+  const sheetName = getSheetName(data);
 
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A:F",
-  });
-
-  const rows = response.data.values || [];
-  return rows
-    .slice(1)
-    .filter(
-      (row) => row[0] === data && row[3] === telefone && row[4] === "agendado",
-    ).length;
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${sheetName}!A:F`,
+    });
+    const rows = response.data.values || [];
+    return rows
+      .slice(1)
+      .filter(
+        (row) =>
+          row[0] === data && row[3] === telefone && row[4] === "agendado",
+      ).length;
+  } catch (e) {
+    return 0;
+  }
 }
 
 async function bookSlot(data, horario, nome, telefone) {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
+  const sheetName = getSheetName(data);
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A:F",
+    range: `${sheetName}!A:F`,
   });
 
   const rows = response.data.values || [];
@@ -85,7 +129,7 @@ async function bookSlot(data, horario, nome, telefone) {
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `Sheet1!A${rowIndex + 1}:F${rowIndex + 1}`,
+    range: `${sheetName}!A${rowIndex + 1}:F${rowIndex + 1}`,
     valueInputOption: "RAW",
     requestBody: {
       values: [[data, horario, nome, telefone, "agendado", criadoEm]],
@@ -98,10 +142,11 @@ async function bookSlot(data, horario, nome, telefone) {
 async function cancelSlot(data, horario, telefone) {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
+  const sheetName = getSheetName(data);
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A:F",
+    range: `${sheetName}!A:F`,
   });
 
   const rows = response.data.values || [];
@@ -117,7 +162,7 @@ async function cancelSlot(data, horario, telefone) {
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `Sheet1!A${rowIndex + 1}:F${rowIndex + 1}`,
+    range: `${sheetName}!A${rowIndex + 1}:F${rowIndex + 1}`,
     valueInputOption: "RAW",
     requestBody: {
       values: [[data, horario, "", "", "livre", ""]],
@@ -150,66 +195,83 @@ async function rescheduleSlot(
 async function getClientAppointments(telefone) {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
+  const sheetNames = getRelevantSheetNames();
+  const appointments = [];
 
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A:E",
-  });
+  for (const sheetName of sheetNames) {
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${sheetName}!A:E`,
+      });
+      const rows = response.data.values || [];
+      appointments.push(
+        ...rows
+          .slice(1)
+          .filter((row) => row[3] === telefone && row[4] === "agendado")
+          .map((row) => ({ data: row[0], horario: row[1] })),
+      );
+    } catch (e) {
+      // Aba pode não existir — ignora
+    }
+  }
 
-  const rows = response.data.values || [];
-  return rows
-    .slice(1)
-    .filter((row) => row[3] === telefone && row[4] === "agendado")
-    .map((row) => ({ data: row[0], horario: row[1] }));
+  return appointments;
 }
 
 async function getAppointmentsForReminder(horasAntes) {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
-
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A:F",
-  });
-
-  const rows = response.data.values || [];
+  const sheetNames = getRelevantSheetNames();
   const now = new Date(
     new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
   );
-
   const appointments = [];
 
-  rows.slice(1).forEach((row) => {
-    if (row[4] !== "agendado") return;
-    if (!row[0] || !row[1] || !row[3]) return;
+  for (const sheetName of sheetNames) {
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${sheetName}!A:F`,
+      });
+      const rows = response.data.values || [];
 
-    const [year, month, day] = row[0].split("-").map(Number);
-    const [hour, minute] = row[1].split(":").map(Number);
-    const slotDate = new Date(year, month - 1, day, hour, minute);
-    const diffHoras = (slotDate - now) / (1000 * 60 * 60);
-    const dentroJanela =
-      diffHoras >= horasAntes - 0.5 && diffHoras < horasAntes + 0.5;
+      rows.slice(1).forEach((row) => {
+        if (row[4] !== "agendado") return;
+        if (!row[0] || !row[1] || !row[3]) return;
 
-    if (!dentroJanela) return;
+        const [year, month, day] = row[0].split("-").map(Number);
+        const [hour, minute] = row[1].split(":").map(Number);
+        const slotDate = new Date(year, month - 1, day, hour, minute);
+        const diffHoras = (slotDate - now) / (1000 * 60 * 60);
+        const dentroJanela =
+          diffHoras >= horasAntes - 0.5 && diffHoras < horasAntes + 0.5;
 
-    if (horasAntes === 24) {
-      if (!row[5]) return;
-      const criadoEm = new Date(
-        row[5].split(", ")[0].split("/").reverse().join("-") +
-          "T" +
-          row[5].split(", ")[1],
-      );
-      const diasDeAntecedencia = (slotDate - criadoEm) / (1000 * 60 * 60 * 24);
-      if (diasDeAntecedencia < 2) return;
+        if (!dentroJanela) return;
+
+        if (horasAntes === 24) {
+          if (!row[5]) return;
+          const criadoEm = new Date(
+            row[5].split(", ")[0].split("/").reverse().join("-") +
+              "T" +
+              row[5].split(", ")[1],
+          );
+          const diasDeAntecedencia =
+            (slotDate - criadoEm) / (1000 * 60 * 60 * 24);
+          if (diasDeAntecedencia < 2) return;
+        }
+
+        appointments.push({
+          data: row[0],
+          horario: row[1],
+          nome: row[2],
+          telefone: row[3],
+        });
+      });
+    } catch (e) {
+      // Aba pode não existir — ignora
     }
-
-    appointments.push({
-      data: row[0],
-      horario: row[1],
-      nome: row[2],
-      telefone: row[3],
-    });
-  });
+  }
 
   return appointments;
 }
