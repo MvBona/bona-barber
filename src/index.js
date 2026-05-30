@@ -36,7 +36,8 @@ console.log("carregando transcribe...");
 const { transcribeAudio } = require("./transcribe");
 
 console.log("carregando scheduler...");
-const { generateWeeklySlots } = require("./scheduler");
+// ✅ MUDANÇA: importando blockDay e blockPeriod
+const { generateWeeklySlots, blockDay, blockPeriod } = require("./scheduler");
 
 console.log("todos os módulos carregados!");
 const app = express();
@@ -92,6 +93,42 @@ async function sendReminders(horasAntes) {
   }
 }
 
+async function processBarberCommand(text) {
+  const normalized = text.toLowerCase().trim();
+
+  // Padrão: "bloquear 15/08" ou "bloquear 15/08/2026"
+  const singleDay = normalized.match(
+    /bloquear\s+(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/,
+  );
+  if (singleDay) {
+    const day = singleDay[1].padStart(2, "0");
+    const month = singleDay[2].padStart(2, "0");
+    const year = singleDay[3] || new Date().getFullYear();
+    const data = `${year}-${month}-${day}`;
+    const count = await blockDay(data);
+    return count > 0
+      ? `✅ Dia ${day}/${month} bloqueado. ${count} horário(s) bloqueado(s).`
+      : `Não encontrei horários disponíveis em ${day}/${month}.`;
+  }
+
+  // Padrão: "bloquear 15/08 ao 22/08" ou "bloquear 15/08 a 22/08"
+  const period = normalized.match(
+    /bloquear\s+(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\s+a[o]?\s+(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/,
+  );
+  if (period) {
+    const year1 = period[3] || new Date().getFullYear();
+    const year2 = period[6] || new Date().getFullYear();
+    const dataInicio = `${year1}-${period[2].padStart(2, "0")}-${period[1].padStart(2, "0")}`;
+    const dataFim = `${year2}-${period[5].padStart(2, "0")}-${period[4].padStart(2, "0")}`;
+    const count = await blockPeriod(dataInicio, dataFim);
+    return count > 0
+      ? `✅ Período bloqueado. ${count} horário(s) bloqueado(s).`
+      : `Não encontrei horários no período informado.`;
+  }
+
+  return null;
+}
+
 app.get("/", (req, res) => {
   res.send("Bot da barbearia rodando!");
 });
@@ -127,6 +164,14 @@ app.post("/webhook", async (req, res) => {
   }
 
   if (!text) return res.sendStatus(200);
+
+  if (phone === BARBERSHOP_PHONE) {
+    const commandResponse = await processBarberCommand(text);
+    if (commandResponse) {
+      await sendMessage(phone, commandResponse);
+      return res.sendStatus(200);
+    }
+  }
 
   try {
     const slots = await getAvailableSlots();
@@ -229,11 +274,11 @@ schedule.schedule("0 * * * *", () => sendReminders(2), {
 });
 
 schedule.schedule(
-  "0 0 * * 0",
+  "0 0 * * *",
   () => {
-    console.log("Gerando horários da semana seguinte...");
+    console.log("Verificando e gerando horários...");
     generateWeeklySlots()
-      .then(() => console.log("Horários gerados com sucesso!"))
+      .then(() => console.log("Horários verificados com sucesso!"))
       .catch((err) => console.error("Erro ao gerar horários:", err.message));
   },
   { timezone: "America/Sao_Paulo" },
