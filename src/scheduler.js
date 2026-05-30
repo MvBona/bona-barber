@@ -184,4 +184,40 @@ async function blockPeriod(dataInicio, dataFim) {
   return total;
 }
 
-module.exports = { generateWeeklySlots, blockDay, blockPeriod };
+async function unblockDay(data) {
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+  const [year, month] = data.split("-");
+  const sheetName = `${year}-${month}`;
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A:F`,
+  });
+
+  const rows = response.data.values || [];
+  const updates = [];
+
+  rows.slice(1).forEach((row, i) => {
+    if (row[0] === data && row[4] === "bloqueado") {
+      updates.push({
+        range: `${sheetName}!E${i + 2}`,
+        values: [["livre"]],
+      });
+    }
+  });
+
+  if (updates.length === 0) return 0;
+
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      valueInputOption: "RAW",
+      data: updates,
+    },
+  });
+
+  return updates.length;
+}
+
+module.exports = { generateWeeklySlots, blockDay, blockPeriod, unblockDay };

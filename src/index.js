@@ -36,8 +36,12 @@ console.log("carregando transcribe...");
 const { transcribeAudio } = require("./transcribe");
 
 console.log("carregando scheduler...");
-// ✅ MUDANÇA: importando blockDay e blockPeriod
-const { generateWeeklySlots, blockDay, blockPeriod } = require("./scheduler");
+const {
+  generateWeeklySlots,
+  blockDay,
+  blockPeriod,
+  unblockDay,
+} = require("./scheduler");
 
 console.log("todos os módulos carregados!");
 const app = express();
@@ -112,6 +116,50 @@ async function processBarberCommand(text) {
     normalized.includes("fecha") ||
     normalized.includes("cancelar dia") ||
     normalized.includes("folga");
+
+  if (!hasBlock) return null;
+
+  const hasUnblock =
+    normalized.includes("desbloquear") ||
+    normalized.includes("desbloqueia") ||
+    normalized.includes("desbloqueie") ||
+    normalized.includes("abrir dia") ||
+    normalized.includes("abre dia") ||
+    normalized.includes("liberar") ||
+    normalized.includes("libera");
+
+  if (hasUnblock) {
+    const singleUnblock = normalized.match(
+      /(?:dia\s+)?(\d{1,2})[\/\s](?:do\s+|de\s+)?(\d{1,2}|janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:[\/\s](\d{4}))?/,
+    );
+
+    // Se não achou data completa, tenta só o dia (assume mês atual)
+    const onlyDay = !singleUnblock && normalized.match(/(?:dia\s+)?(\d{1,2})/);
+
+    if (singleUnblock) {
+      const day = singleUnblock[1].padStart(2, "0");
+      const month = parseMonth(singleUnblock[2]);
+      const year = singleUnblock[3] || currentYear;
+      if (!month) return null;
+      const data = `${year}-${month}-${day}`;
+      const count = await unblockDay(data);
+      return count > 0
+        ? `✅ Dia ${day}/${month} desbloqueado. ${count} horário(s) liberado(s).`
+        : `Não encontrei horários bloqueados em ${day}/${month}.`;
+    }
+
+    if (onlyDay) {
+      const day = onlyDay[1].padStart(2, "0");
+      const now = new Date();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const year = now.getFullYear();
+      const data = `${year}-${month}-${day}`;
+      const count = await unblockDay(data);
+      return count > 0
+        ? `✅ Dia ${day}/${month} desbloqueado. ${count} horário(s) liberado(s).`
+        : `Não encontrei horários bloqueados em ${day}/${month}.`;
+    }
+  }
 
   if (!hasBlock) return null;
 
