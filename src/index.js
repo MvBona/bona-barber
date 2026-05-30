@@ -23,7 +23,9 @@ console.log("carregando sheets...");
 const {
   getAvailableSlots,
   bookSlot,
+  bookSlotAdmin,
   cancelSlot,
+  cancelSlotAdmin,
   rescheduleSlot,
   getAppointmentsForReminder,
   countClientAppointmentsOnDay,
@@ -39,8 +41,11 @@ console.log("carregando scheduler...");
 const {
   generateWeeklySlots,
   blockDay,
+  blockSlot,
   blockPeriod,
   unblockDay,
+  unblockSlot,
+  unblockPeriod,
 } = require("./scheduler");
 
 console.log("todos os módulos carregados!");
@@ -108,6 +113,7 @@ async function processBarberCommand(text) {
     .replace(/[\u0300-\u036f]/g, "");
 
   const currentYear = new Date().getFullYear();
+  const currentMonth = String(new Date().getMonth() + 1).padStart(2, "0");
 
   const monthNames = {
     janeiro: "01",
@@ -129,6 +135,41 @@ async function processBarberCommand(text) {
     return monthNames[m] || null;
   }
 
+  function extractDate(str) {
+    const match = str.match(
+      /(?:dia\s+)?(\d{1,2})[\/\s](?:do\s+|de\s+)?(\d{1,2}|janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:[\/\s](\d{4}))?/,
+    );
+    if (!match) return null;
+    const day = match[1].padStart(2, "0");
+    const month = parseMonth(match[2]);
+    const year = match[3] || currentYear;
+    if (!month) return null;
+    return `${year}-${month}-${day}`;
+  }
+
+  function extractTime(str) {
+    const match = str.match(
+      /(?:as?\s+|as\s+|horario\s+(?:das?\s+)?)?(\d{1,2})(?:h|:00)?(?!\d)/,
+    );
+    if (!match) return null;
+    return match[1].padStart(2, "0") + ":00";
+  }
+
+  function extractPeriod(str) {
+    const match = str.match(
+      /(?:dia\s+)?(\d{1,2})[\/\s](?:do\s+|de\s+)?(\d{1,2}|janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:[\/\s](\d{4}))?\s+a[o]?\s+(?:dia\s+)?(\d{1,2})[\/\s](?:do\s+|de\s+)?(\d{1,2}|janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:[\/\s](\d{4}))?/,
+    );
+    if (!match) return null;
+    const month1 = parseMonth(match[2]);
+    const month2 = parseMonth(match[5]);
+    if (!month1 || !month2) return null;
+    return {
+      inicio: `${match[3] || currentYear}-${month1}-${match[1].padStart(2, "0")}`,
+      fim: `${match[6] || currentYear}-${month2}-${match[4].padStart(2, "0")}`,
+    };
+  }
+
+  // ─── DESBLOQUEIO ───
   const hasUnblock =
     normalized.includes("desbloquear") ||
     normalized.includes("desbloqueia") ||
@@ -139,36 +180,49 @@ async function processBarberCommand(text) {
     normalized.includes("libera");
 
   if (hasUnblock) {
-    const singleUnblock = normalized.match(
-      /(?:dia\s+)?(\d{1,2})[\/\s](?:do\s+|de\s+)?(\d{1,2}|janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:[\/\s](\d{4}))?/,
-    );
-    const onlyDay = !singleUnblock && normalized.match(/(?:dia\s+)?(\d{1,2})/);
+    // Desbloqueia horário específico: "desbloqueia 20h do dia 15/06"
+    const timeMatch = extractTime(normalized);
+    const dateMatch = extractDate(normalized);
 
-    if (singleUnblock) {
-      const day = singleUnblock[1].padStart(2, "0");
-      const month = parseMonth(singleUnblock[2]);
-      const year = singleUnblock[3] || currentYear;
-      if (!month) return null;
-      const data = `${year}-${month}-${day}`;
-      const count = await unblockDay(data);
+    if (timeMatch && dateMatch) {
+      const count = await unblockSlot(dateMatch, timeMatch);
+      const [y, m, d] = dateMatch.split("-");
       return count > 0
-        ? `✅ Dia ${day}/${month} desbloqueado. ${count} horário(s) liberado(s).`
-        : `Não encontrei horários bloqueados em ${day}/${month}.`;
+        ? `✅ Horário ${timeMatch} do dia ${d}/${m} desbloqueado.`
+        : `Não encontrei o horário ${timeMatch} bloqueado em ${d}/${m}.`;
     }
 
+    // Desbloqueia período: "desbloqueia 15/06 ao 22/06"
+    const period = extractPeriod(normalized);
+    if (period) {
+      const count = await unblockPeriod(period.inicio, period.fim);
+      return count > 0
+        ? `✅ Período desbloqueado. ${count} horário(s) liberado(s).`
+        : `Não encontrei horários bloqueados nesse período.`;
+    }
+
+    // Desbloqueia dia inteiro: "desbloqueia dia 15/06"
+    if (dateMatch) {
+      const count = await unblockDay(dateMatch);
+      const [y, m, d] = dateMatch.split("-");
+      return count > 0
+        ? `✅ Dia ${d}/${m} desbloqueado. ${count} horário(s) liberado(s).`
+        : `Não encontrei horários bloqueados em ${d}/${m}.`;
+    }
+
+    // Desbloqueia só pelo dia: "desbloqueia dia 15"
+    const onlyDay = normalized.match(/(?:dia\s+)?(\d{1,2})(?!\s*[\/h:])/);
     if (onlyDay) {
       const day = onlyDay[1].padStart(2, "0");
-      const now = new Date();
-      const month = String(now.getMonth() + 1).padStart(2, "0");
-      const year = now.getFullYear();
-      const data = `${year}-${month}-${day}`;
+      const data = `${currentYear}-${currentMonth}-${day}`;
       const count = await unblockDay(data);
       return count > 0
-        ? `✅ Dia ${day}/${month} desbloqueado. ${count} horário(s) liberado(s).`
-        : `Não encontrei horários bloqueados em ${day}/${month}.`;
+        ? `✅ Dia ${day}/${currentMonth} desbloqueado. ${count} horário(s) liberado(s).`
+        : `Não encontrei horários bloqueados em ${day}/${currentMonth}.`;
     }
   }
 
+  // ─── BLOQUEIO ───
   const hasBlock =
     normalized.includes("bloquear") ||
     normalized.includes("bloqueia") ||
@@ -178,22 +232,96 @@ async function processBarberCommand(text) {
     normalized.includes("cancelar dia") ||
     normalized.includes("folga");
 
-  if (!hasBlock) return null;
+  if (hasBlock) {
+    const timeMatch = extractTime(normalized);
+    const dateMatch = extractDate(normalized);
 
-  const singleMatch = normalized.match(
-    /(?:dia\s+)?(\d{1,2})[\/\s](?:do\s+|de\s+)?(\d{1,2}|janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:[\/\s](\d{4}))?/,
-  );
+    // Bloqueia horário específico: "bloqueia 20h do dia 15/06"
+    if (timeMatch && dateMatch) {
+      const count = await blockSlot(dateMatch, timeMatch);
+      const [y, m, d] = dateMatch.split("-");
+      return count > 0
+        ? `✅ Horário ${timeMatch} do dia ${d}/${m} bloqueado.`
+        : `Não encontrei o horário ${timeMatch} em ${d}/${m}.`;
+    }
 
-  if (singleMatch) {
-    const day = singleMatch[1].padStart(2, "0");
-    const month = parseMonth(singleMatch[2]);
-    const year = singleMatch[3] || currentYear;
-    if (!month) return null;
-    const data = `${year}-${month}-${day}`;
-    const count = await blockDay(data);
-    return count > 0
-      ? `✅ Dia ${day}/${month} bloqueado. ${count} horário(s) bloqueado(s).`
-      : `Não encontrei horários disponíveis em ${day}/${month}.`;
+    // Bloqueia período: "bloqueia 15/06 ao 22/06"
+    const period = extractPeriod(normalized);
+    if (period) {
+      const count = await blockPeriod(period.inicio, period.fim);
+      return count > 0
+        ? `✅ Período bloqueado. ${count} horário(s) bloqueado(s).`
+        : `Não encontrei horários disponíveis nesse período.`;
+    }
+
+    // Bloqueia dia inteiro: "bloqueia dia 15/06"
+    if (dateMatch) {
+      const count = await blockDay(dateMatch);
+      const [y, m, d] = dateMatch.split("-");
+      return count > 0
+        ? `✅ Dia ${d}/${m} bloqueado. ${count} horário(s) bloqueado(s).`
+        : `Não encontrei horários disponíveis em ${d}/${m}.`;
+    }
+  }
+
+  // ─── AGENDAMENTO ADMIN ───
+  // Padrão: "agenda João 15/06 às 14h" ou "marca João dia 15/06 14h"
+  const hasBook =
+    normalized.includes("agenda") ||
+    normalized.includes("marca") ||
+    normalized.includes("reserva");
+
+  if (hasBook) {
+    const timeMatch = extractTime(normalized);
+    const dateMatch = extractDate(normalized);
+
+    if (timeMatch && dateMatch) {
+      // Extrai nome — palavra(s) após o comando e antes da data/hora
+      const nameMatch = normalized.match(
+        /(?:agenda|marca|reserva)\s+(?:pra?\s+|para\s+)?([a-záàãâéêíóôõúç\s]+?)(?:\s+dia|\s+\d{1,2}[\/h])/,
+      );
+      const clientName = nameMatch
+        ? nameMatch[1].trim().replace(/\b\w/g, (c) => c.toUpperCase())
+        : "Cliente";
+
+      const booked = await bookSlot(
+        dateMatch,
+        timeMatch,
+        clientName,
+        BARBERSHOP_PHONE,
+      );
+      const [y, m, d] = dateMatch.split("-");
+      return booked
+        ? `✅ Agendado: ${clientName} — ${d}/${m} às ${timeMatch}.`
+        : `Não consegui agendar ${clientName} em ${d}/${m} às ${timeMatch}. Verifique se o horário existe.`;
+    }
+  }
+
+  // ─── CANCELAMENTO ADMIN ───
+  // Padrão: "cancela dia 15/06 às 14h"
+  const hasCancel =
+    normalized.includes("cancela") ||
+    normalized.includes("cancelar") ||
+    normalized.includes("remove") ||
+    normalized.includes("apaga");
+
+  if (hasCancel) {
+    const timeMatch = extractTime(normalized);
+    const dateMatch = extractDate(normalized);
+
+    if (timeMatch && dateMatch) {
+      const cancelled = await cancelSlotAdmin(dateMatch, timeMatch);
+      const [y, m, d] = dateMatch.split("-");
+      if (cancelled) {
+        // Notifica o cliente que o barbeiro cancelou
+        await sendMessage(
+          cancelled.clientPhone,
+          `Olá ${cancelled.clientName}! Seu horário do dia ${d}/${m} às ${timeMatch} foi cancelado pela barbearia. Entre em contato para reagendar.`,
+        );
+        return `✅ Horário ${d}/${m} às ${timeMatch} cancelado. Cliente notificado.`;
+      }
+      return `Não encontrei agendamento em ${d}/${m} às ${timeMatch}.`;
+    }
   }
 
   return null;

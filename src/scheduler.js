@@ -16,15 +16,15 @@ function getNextTwoMonthsDates() {
   );
 
   const start = new Date(today);
-  start.setDate(today.getDate() + 1); // começa amanhã
+  start.setDate(today.getDate() + 1);
 
   const end = new Date(today);
   end.setMonth(today.getMonth() + 2);
-  end.setDate(0); // último dia do mês seguinte
+  end.setDate(0);
 
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const dayOfWeek = d.getDay();
-    if (dayOfWeek === 0) continue; // pula domingo
+    if (dayOfWeek === 0) continue;
 
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -159,13 +159,38 @@ async function blockDay(data) {
 
   await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId: SPREADSHEET_ID,
-    requestBody: {
-      valueInputOption: "RAW",
-      data: updates,
-    },
+    requestBody: { valueInputOption: "RAW", data: updates },
   });
 
   return updates.length;
+}
+
+async function blockSlot(data, horario) {
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+  const [year, month] = data.split("-");
+  const sheetName = `${year}-${month}`;
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A:F`,
+  });
+
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex(
+    (row) => row[0] === data && row[1] === horario && row[4] !== "bloqueado",
+  );
+
+  if (rowIndex === -1) return 0;
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!E${rowIndex + 1}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [["bloqueado"]] },
+  });
+
+  return 1;
 }
 
 async function blockPeriod(dataInicio, dataFim) {
@@ -211,13 +236,62 @@ async function unblockDay(data) {
 
   await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId: SPREADSHEET_ID,
-    requestBody: {
-      valueInputOption: "RAW",
-      data: updates,
-    },
+    requestBody: { valueInputOption: "RAW", data: updates },
   });
 
   return updates.length;
 }
 
-module.exports = { generateWeeklySlots, blockDay, blockPeriod, unblockDay };
+async function unblockSlot(data, horario) {
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+  const [year, month] = data.split("-");
+  const sheetName = `${year}-${month}`;
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A:F`,
+  });
+
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex(
+    (row) => row[0] === data && row[1] === horario && row[4] === "bloqueado",
+  );
+
+  if (rowIndex === -1) return 0;
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!E${rowIndex + 1}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [["livre"]] },
+  });
+
+  return 1;
+}
+
+async function unblockPeriod(dataInicio, dataFim) {
+  const start = new Date(dataInicio + "T00:00:00");
+  const end = new Date(dataFim + "T00:00:00");
+  let total = 0;
+
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    const unblocked = await unblockDay(`${yyyy}-${mm}-${dd}`);
+    total += unblocked;
+  }
+
+  return total;
+}
+
+module.exports = {
+  generateWeeklySlots,
+  blockDay,
+  blockSlot,
+  blockPeriod,
+  unblockDay,
+  unblockSlot,
+  unblockPeriod,
+};

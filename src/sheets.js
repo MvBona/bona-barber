@@ -76,9 +76,7 @@ async function getAvailableSlots() {
           status: row[4],
         })),
       );
-    } catch (e) {
-      // Aba pode não existir ainda — ignora
-    }
+    } catch (e) {}
   }
 
   return allSlots;
@@ -139,6 +137,40 @@ async function bookSlot(data, horario, nome, telefone) {
   return true;
 }
 
+// ✅ NOVO: barbeiro pode agendar mesmo em horários bloqueados
+async function bookSlotAdmin(data, horario, nome, telefone) {
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+  const sheetName = getSheetName(data);
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A:F`,
+  });
+
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex(
+    (row) => row[0] === data && row[1] === horario && row[4] !== "agendado", // aceita livre e bloqueado
+  );
+
+  if (rowIndex === -1) return false;
+
+  const criadoEm = new Date().toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+  });
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A${rowIndex + 1}:F${rowIndex + 1}`,
+    valueInputOption: "RAW",
+    requestBody: {
+      values: [[data, horario, nome, telefone, "agendado", criadoEm]],
+    },
+  });
+
+  return true;
+}
+
 async function cancelSlot(data, horario, telefone) {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
@@ -170,6 +202,40 @@ async function cancelSlot(data, horario, telefone) {
   });
 
   return true;
+}
+
+// ✅ NOVO: barbeiro pode cancelar qualquer agendamento sem precisar do telefone
+async function cancelSlotAdmin(data, horario) {
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+  const sheetName = getSheetName(data);
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A:F`,
+  });
+
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex(
+    (row) => row[0] === data && row[1] === horario && row[4] === "agendado",
+  );
+
+  if (rowIndex === -1) return false;
+
+  // Salva o telefone do cliente para notificação futura se necessário
+  const clientPhone = rows[rowIndex][3];
+  const clientName = rows[rowIndex][2];
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A${rowIndex + 1}:F${rowIndex + 1}`,
+    valueInputOption: "RAW",
+    requestBody: {
+      values: [[data, horario, "", "", "livre", ""]],
+    },
+  });
+
+  return { clientPhone, clientName };
 }
 
 async function rescheduleSlot(
@@ -211,9 +277,7 @@ async function getClientAppointments(telefone) {
           .filter((row) => row[3] === telefone && row[4] === "agendado")
           .map((row) => ({ data: row[0], horario: row[1] })),
       );
-    } catch (e) {
-      // Aba pode não existir — ignora
-    }
+    } catch (e) {}
   }
 
   return appointments;
@@ -268,9 +332,7 @@ async function getAppointmentsForReminder(horasAntes) {
           telefone: row[3],
         });
       });
-    } catch (e) {
-      // Aba pode não existir — ignora
-    }
+    } catch (e) {}
   }
 
   return appointments;
@@ -279,7 +341,9 @@ async function getAppointmentsForReminder(horasAntes) {
 module.exports = {
   getAvailableSlots,
   bookSlot,
+  bookSlotAdmin,
   cancelSlot,
+  cancelSlotAdmin,
   rescheduleSlot,
   getClientAppointments,
   getAppointmentsForReminder,

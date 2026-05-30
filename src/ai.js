@@ -49,10 +49,19 @@ async function interpretMessage(message, availableSlots, clientName, phone) {
     ? `- Cumprimente brevemente com bom dia/tarde/noite.`
     : `- NÃO cumprimente — já houve interação neste período. Vá direto ao ponto.`;
 
+  const hoje = new Date().toLocaleDateString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    weekday: "long",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
   const systemPrompt = `Você é o assistente virtual de uma barbearia chamada "${process.env.BARBERSHOP_NAME || "Barbearia"}". 
 Ajude clientes a agendar, cancelar e reagendar horários.
 
 O cliente se chama ${clientName}.
+Hoje é ${hoje}.
 
 Horários disponíveis:
 ${slotsText || "Nenhum horário disponível no momento."}
@@ -84,7 +93,13 @@ Regras importantes:
 - Emojis: no máximo 1 por mensagem, só quando fizer sentido.
 - Evite frases como "Que ótimo!", "Com certeza!", "Perfeito!".
 - Não repita o nome do cliente em toda mensagem.
-- Sobre saudações: ${greetInstruction}`;
+- Sobre saudações: ${greetInstruction}
+- Interpretação de datas:
+  * Se o cliente mencionar dia da semana E número do dia (ex: "quinta dia 12", "sexta 20/06"), use SEMPRE o número do dia como referência.
+  * Se mencionar só o dia da semana sem número (ex: "quinta", "semana que vem"), calcule a próxima ocorrência a partir de hoje.
+  * "amanhã" = dia seguinte ao hoje.
+  * "hoje" = data de hoje.
+  * Se só mencionar o número do dia sem mês (ex: "dia 12"), assuma o mês atual ou o próximo se o dia já passou.`;
 
   addToHistory(phone, "user", message);
 
