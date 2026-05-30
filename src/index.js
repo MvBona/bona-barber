@@ -53,6 +53,9 @@ const ZAPI_TOKEN = process.env.ZAPI_TOKEN;
 const ZAPI_CLIENT_TOKEN = process.env.ZAPI_CLIENT_TOKEN;
 const BARBERSHOP_PHONE = process.env.BARBERSHOP_PHONE;
 
+const debounceTimers = new Map();
+const pendingMessages = new Map();
+
 async function sendMessage(phone, message) {
   const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`;
   const response = await fetch(url, {
@@ -97,27 +100,34 @@ async function sendReminders(horasAntes) {
   }
 }
 
-// ✅ MUDANÇA: aceita linguagem natural nos comandos
 async function processBarberCommand(text) {
   const normalized = text
     .toLowerCase()
     .trim()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, ""); // remove acentos
+    .replace(/[\u0300-\u036f]/g, "");
 
-  // Extrai números do texto
-  const numbers = normalized.match(/\d+/g) || [];
+  const currentYear = new Date().getFullYear();
 
-  const hasBlock =
-    normalized.includes("bloquear") ||
-    normalized.includes("bloqueia") ||
-    normalized.includes("bloqueie") ||
-    normalized.includes("fechar") ||
-    normalized.includes("fecha") ||
-    normalized.includes("cancelar dia") ||
-    normalized.includes("folga");
+  const monthNames = {
+    janeiro: "01",
+    fevereiro: "02",
+    marco: "03",
+    abril: "04",
+    maio: "05",
+    junho: "06",
+    julho: "07",
+    agosto: "08",
+    setembro: "09",
+    outubro: "10",
+    novembro: "11",
+    dezembro: "12",
+  };
 
-  if (!hasBlock) return null;
+  function parseMonth(m) {
+    if (/^\d+$/.test(m)) return m.padStart(2, "0");
+    return monthNames[m] || null;
+  }
 
   const hasUnblock =
     normalized.includes("desbloquear") ||
@@ -130,10 +140,8 @@ async function processBarberCommand(text) {
 
   if (hasUnblock) {
     const singleUnblock = normalized.match(
-      /(?:dia\s+)?(\d{1,2})[\/\s](?:do\s+|de\s+)?(\d{1,2}|janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:[\/\s](\d{4}))?/,
+      /(?:dia\s+)?(\d{1,2})[\/\s](?:do\s+|de\s+)?(\d{1,2}|janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:[\/\s](\d{4}))?/,
     );
-
-    // Se não achou data completa, tenta só o dia (assume mês atual)
     const onlyDay = !singleUnblock && normalized.match(/(?:dia\s+)?(\d{1,2})/);
 
     if (singleUnblock) {
@@ -161,39 +169,20 @@ async function processBarberCommand(text) {
     }
   }
 
+  const hasBlock =
+    normalized.includes("bloquear") ||
+    normalized.includes("bloqueia") ||
+    normalized.includes("bloqueie") ||
+    normalized.includes("fechar") ||
+    normalized.includes("fecha") ||
+    normalized.includes("cancelar dia") ||
+    normalized.includes("folga");
+
   if (!hasBlock) return null;
 
-  const currentYear = new Date().getFullYear();
-
-  // Tenta extrair período: "10 ao 22 de junho", "10/06 ao 22/06"
-  const periodMatch = normalized.match(
-    /(\d{1,2})[\/\s](?:ao?|até|a)\s*(\d{1,2})[\/\s](?:do\s+)?(\d{1,2}|janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:[\/\s](\d{4}))?/,
-  );
-
-  // Tenta extrair dia único: "dia 10 do 6", "10/06", "dia 10 de junho"
   const singleMatch = normalized.match(
-    /(?:dia\s+)?(\d{1,2})[\/\s](?:do\s+|de\s+)?(\d{1,2}|janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:[\/\s](\d{4}))?/,
+    /(?:dia\s+)?(\d{1,2})[\/\s](?:do\s+|de\s+)?(\d{1,2}|janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:[\/\s](\d{4}))?/,
   );
-
-  const monthNames = {
-    janeiro: "01",
-    fevereiro: "02",
-    marco: "03",
-    abril: "04",
-    maio: "05",
-    junho: "06",
-    julho: "07",
-    agosto: "08",
-    setembro: "09",
-    outubro: "10",
-    novembro: "11",
-    dezembro: "12",
-  };
-
-  function parseMonth(m) {
-    if (/^\d+$/.test(m)) return m.padStart(2, "0");
-    return monthNames[m] || null;
-  }
 
   if (singleMatch) {
     const day = singleMatch[1].padStart(2, "0");
@@ -210,53 +199,31 @@ async function processBarberCommand(text) {
   return null;
 }
 
-app.get("/", (req, res) => {
-  res.send("Bot da barbearia rodando!");
-});
+async function processAccumulatedMessages(phone, name) {
+  const messages = pendingMessages.get(phone) || [];
+  pendingMessages.delete(phone);
+  debounceTimers.delete(phone);
 
-app.post("/webhook", async (req, res) => {
-  const body = req.body;
+  if (messages.length === 0) return;
 
-  if (body.fromMe) return res.sendStatus(200);
+  // Junta todas as mensagens em uma só
+  const combinedText = messages.join(" ");
+  console.log(
+    `Processando ${messages.length} mensagem(ns) de ${name} (${phone}): ${combinedText}`,
+  );
 
-  const phone = body.phone;
-  const name = body.senderName;
-  let text = null;
-
-  if (body.text?.message) {
-    text = body.text.message;
-    console.log(`Texto de ${name} (${phone}): ${text}`);
-  } else if (body.audio?.audioUrl) {
-    console.log(`Áudio recebido de ${name} (${phone}), transcrevendo...`);
-    try {
-      text = await transcribeAudio(body.audio.audioUrl);
-      console.log(`Transcrição: ${text}`);
-    } catch (error) {
-      console.error("Erro ao transcrever áudio:", error.message);
-      await sendMessage(
-        phone,
-        "Desculpe, não consegui entender o áudio. Pode digitar sua mensagem? 😅",
-      );
-      await notifyBarber(
-        `⚠️ Problema ao processar áudio de ${name} (${phone})`,
-      );
-      return res.sendStatus(200);
-    }
-  }
-
-  if (!text) return res.sendStatus(200);
-
+  // Verifica se é comando do barbeiro
   if (phone === BARBERSHOP_PHONE) {
-    const commandResponse = await processBarberCommand(text);
+    const commandResponse = await processBarberCommand(combinedText);
     if (commandResponse) {
       await sendMessage(phone, commandResponse);
-      return res.sendStatus(200);
+      return;
     }
   }
 
   try {
     const slots = await getAvailableSlots();
-    const result = await interpretMessage(text, slots, name, phone);
+    const result = await interpretMessage(combinedText, slots, name, phone);
 
     console.log("Intenção identificada:", result);
 
@@ -333,6 +300,60 @@ app.post("/webhook", async (req, res) => {
       `⚠️ *Atenção manual*\n👤 ${name}\n📞 ${phone}\nCliente pode precisar de ajuda.`,
     );
   }
+}
+
+app.get("/", (req, res) => {
+  res.send("Bot da barbearia rodando!");
+});
+
+app.post("/webhook", async (req, res) => {
+  const body = req.body;
+
+  if (body.fromMe) return res.sendStatus(200);
+
+  const phone = body.phone;
+  const name = body.senderName;
+  let text = null;
+
+  if (body.text?.message) {
+    text = body.text.message;
+    console.log(`Texto de ${name} (${phone}): ${text}`);
+  } else if (body.audio?.audioUrl) {
+    console.log(`Áudio recebido de ${name} (${phone}), transcrevendo...`);
+    try {
+      text = await transcribeAudio(body.audio.audioUrl);
+      console.log(`Transcrição: ${text}`);
+    } catch (error) {
+      console.error("Erro ao transcrever áudio:", error.message);
+      await sendMessage(
+        phone,
+        "Desculpe, não consegui entender o áudio. Pode digitar sua mensagem? 😅",
+      );
+      await notifyBarber(
+        `⚠️ Problema ao processar áudio de ${name} (${phone})`,
+      );
+      return res.sendStatus(200);
+    }
+  }
+
+  if (!text) return res.sendStatus(200);
+
+  if (!pendingMessages.has(phone)) {
+    pendingMessages.set(phone, []);
+  }
+  pendingMessages.get(phone).push(text);
+
+  // Cancela timer anterior se existir
+  if (debounceTimers.has(phone)) {
+    clearTimeout(debounceTimers.get(phone));
+  }
+
+  // Agenda processamento após 30s de inatividade
+  const timer = setTimeout(() => {
+    processAccumulatedMessages(phone, name);
+  }, 30 * 1000);
+
+  debounceTimers.set(phone, timer);
 
   res.sendStatus(200);
 });
