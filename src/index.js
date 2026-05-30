@@ -151,7 +151,7 @@ app.post("/webhook", async (req, res) => {
         } else {
           await sendMessage(phone, result.resposta);
           await notifyBarber(
-            `✅ Agendamento: ${name} — ${result.data} às ${result.horario}`,
+            `✅ *Novo agendamento*\n👤 ${name}\n📅 ${result.data}\n🕐 ${result.horario}`,
           );
         }
       }
@@ -165,7 +165,7 @@ app.post("/webhook", async (req, res) => {
       } else {
         await sendMessage(phone, result.resposta);
         await notifyBarber(
-          `❌ Cancelamento: ${name} — ${result.data} às ${result.horario}`,
+          `❌ *Cancelamento*\n👤 ${name}\n📅 ${result.data}\n🕐 ${result.horario}`,
         );
       }
     } else if (
@@ -191,7 +191,7 @@ app.post("/webhook", async (req, res) => {
       } else {
         await sendMessage(phone, result.resposta);
         await notifyBarber(
-          `🔄 Reagendamento: ${name} — de ${result.data} às ${result.horario} para ${result.data_nova} às ${result.horario_novo}`,
+          `🔄 *Reagendamento*\n👤 ${name}\n📅 ${result.data} às ${result.horario}\n➡️ ${result.data_nova} às ${result.horario_novo}`,
         );
       }
     } else {
@@ -204,7 +204,7 @@ app.post("/webhook", async (req, res) => {
       "Desculpe, tive um problema. Tenta de novo em instantes!",
     );
     await notifyBarber(
-      `⚠️ Erro ao atender ${name} (${phone}). Pode precisar de atenção manual.`,
+      `⚠️ *Atenção manual*\n👤 ${name}\n📞 ${phone}\nCliente pode precisar de ajuda.`,
     );
   }
 
