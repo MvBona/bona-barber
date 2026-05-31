@@ -81,6 +81,7 @@ Regras importantes:
 - Se o cliente disse "quero reagendar" e depois informou o horário atual, use acao "reagendar".
 - Se o cliente disse "quero cancelar" e depois informou o horário, use acao "cancelar".
 - Se o cliente disse "quero agendar" e depois informou o horário, use acao "agendar".
+- Se o cliente pedir "ajuda", "help" ou "como funciona", use acao "conversa" e na resposta explique: "Posso te ajudar a *agendar*, *cancelar* ou *reagendar* um horário. É só me dizer o que precisa!"
 - NUNCA perca o contexto da intenção original.
 - Se tiver o horário atual mas faltar o novo horário, use acao "reagendar" com horario_novo null e peça o novo horário.
 - "agendar": cliente quer marcar. Se tiver data e horário claros, confirme diretamente SEM pedir confirmação extra.

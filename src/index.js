@@ -30,6 +30,7 @@ const {
   getAppointmentsForReminder,
   countClientAppointmentsOnDay,
   getSlotInfo,
+  getDaySchedule,
 } = require("./sheets");
 
 console.log("carregando ai...");
@@ -161,9 +162,18 @@ async function processBarberCommand(text) {
   }
 
   function extractTime(str) {
-    const match = str.match(
-      /(?:as?\s+|as\s+|horario\s+(?:das?\s+)?)?(\d{1,2})(?:h|:00)?(?!\d)/,
-    );
+    // Trata "4 da tarde", "3 da manhã", etc
+    const periodMatch = str.match(/(\d{1,2})\s+da\s+(manha|tarde|noite)/);
+    if (periodMatch) {
+      let hour = parseInt(periodMatch[1]);
+      const period = periodMatch[2];
+      if (period === "tarde" && hour < 12) hour += 12;
+      if (period === "noite" && hour < 12) hour += 12;
+      return String(hour).padStart(2, "0") + ":00";
+    }
+
+    // Exige h ou : após o número para evitar pegar datas
+    const match = str.match(/\b(\d{1,2})(?:h|:00)\b/);
     if (!match) return null;
     return match[1].padStart(2, "0") + ":00";
   }
@@ -322,6 +332,9 @@ async function processBarberCommand(text) {
   if (hasReschedule) {
     const times = extractTwoTimes(normalized);
     const dates = extractTwoDates(normalized);
+    console.log(
+      `Reagendamento — times: ${JSON.stringify(times)}, dates: ${JSON.stringify(dates)}`,
+    );
 
     if (times && dates) {
       // Busca info do cliente no horário original
@@ -385,7 +398,7 @@ async function processBarberCommand(text) {
       const cancelled = await cancelSlotAdmin(dateMatch, timeMatch);
       const [y, m, d] = dateMatch.split("-");
       if (cancelled) {
-        // ✅ A — notifica o cliente
+        // A — notifica o cliente
         await sendMessage(
           cancelled.clientPhone,
           `Olá ${cancelled.clientName}! Seu horário do dia ${d}/${m} às ${timeMatch} foi cancelado pela barbearia. Entre em contato para reagendar.`,
@@ -414,7 +427,7 @@ async function processBarberCommand(text) {
         ? nameMatch[1].trim().replace(/\b\w/g, (c) => c.toUpperCase())
         : "Cliente";
 
-      // ✅ Verifica conflito antes de agendar
+      // Verifica conflito antes de agendar
       const existing = await getSlotInfo(dateMatch, timeMatch);
       if (existing && existing.status === "agendado") {
         const [y, m, d] = dateMatch.split("-");
@@ -430,7 +443,7 @@ async function processBarberCommand(text) {
       const [y, m, d] = dateMatch.split("-");
 
       if (booked) {
-        // ✅ A — notifica o barbeiro (já que agendou por ele)
+        // A — notifica o barbeiro (já que agendou por ele)
         await notifyBarber(
           `✅ *Agendamento admin*\n👤 ${clientName}\n📅 ${d}/${m}\n🕐 ${timeMatch}`,
         );
@@ -439,6 +452,81 @@ async function processBarberCommand(text) {
       return `Não consegui agendar ${clientName} em ${d}/${m} às ${timeMatch}.`;
     }
   }
+
+  // ─── AGENDA DO DIA ───
+  // "agenda hoje", "agenda amanhã", "agenda 15/06"
+  const hasAgenda =
+    normalized.includes("agenda hoje") ||
+    normalized.includes("agenda amanha") ||
+    normalized.includes("ver agenda") ||
+    normalized.includes("agenda do dia") ||
+    normalized.includes("quem tem hoje") ||
+    normalized.includes("quem tem amanha") ||
+    (normalized.includes("agenda") &&
+      (normalized.includes("hoje") ||
+        normalized.includes("amanha") ||
+        extractDate(normalized)));
+
+  if (hasAgenda) {
+    const dateMatch =
+      extractDate(normalized) ||
+      (normalized.includes("hoje")
+        ? `${currentYear}-${currentMonth}-${String(now.getDate()).padStart(2, "0")}`
+        : null) ||
+      (normalized.includes("amanha")
+        ? (() => {
+            const t = new Date(now);
+            t.setDate(now.getDate() + 1);
+            return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+          })()
+        : null);
+
+    if (dateMatch) {
+      const schedule = await getDaySchedule(dateMatch);
+      const [y, m, d] = dateMatch.split("-");
+
+      if (schedule.length === 0) {
+        return `Nenhum horário cadastrado para ${d}/${m}.`;
+      }
+
+      const lines = schedule.map((s) => {
+        if (s.status === "agendado") return `🟢 ${s.horario} — ${s.nome}`;
+        if (s.status === "bloqueado") return `🔴 ${s.horario} — bloqueado`;
+        return `⚪ ${s.horario} — livre`;
+      });
+
+      return `📅 *Agenda ${d}/${m}*\n\n${lines.join("\n")}`;
+    }
+  }
+
+  // ─── AJUDA DO BARBEIRO ───
+  // "ajuda", "comandos", "help"
+  const hasHelp =
+    normalized === "ajuda" ||
+    normalized === "help" ||
+    normalized === "comandos" ||
+    normalized.includes("o que posso fazer") ||
+    normalized.includes("como usar");
+
+  if (hasHelp) {
+    return `🛠️ *Comandos disponíveis*\n\n*📅 Ver agenda:*\n"agenda hoje"\n"agenda amanhã"\n"agenda 15/06"\n\n*🔒 Bloquear:*\n"bloqueia 15/06"\n"bloqueia 16h do dia 15/06"\n"bloqueia 15/06 ao 22/06"\n\n*🔓 Desbloquear:*\n"desbloqueia 15/06"\n"desbloqueia 16h do dia 15/06"\n\n*👤 Agendar cliente:*\n"marca João dia 15/06 às 14h"\n\n*❌ Cancelar:*\n"cancela 15/06 às 14h"\n\n*🔄 Reagendar:*\n"passa João de 15/06 14h para 16/06 10h"\n"passa João de hoje 14h para amanhã 10h"`;
+  }
+
+  // ─── FALLBACK ───
+  // Se parece comando mas não conseguiu processar, orienta
+  const pareceComando =
+    hasBlock ||
+    hasUnblock ||
+    hasReschedule ||
+    hasCancel ||
+    hasBook ||
+    hasAgenda;
+
+  if (pareceComando) {
+    return `Não entendi. Digite *ajuda* para ver os comandos disponíveis.`;
+  }
+
+  return null;
 
   return null;
 }

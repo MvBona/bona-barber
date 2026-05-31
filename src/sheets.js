@@ -137,7 +137,6 @@ async function bookSlot(data, horario, nome, telefone) {
   return true;
 }
 
-// ✅ NOVO: barbeiro pode agendar mesmo em horários bloqueados
 async function bookSlotAdmin(data, horario, nome, telefone) {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
@@ -150,7 +149,7 @@ async function bookSlotAdmin(data, horario, nome, telefone) {
 
   const rows = response.data.values || [];
   const rowIndex = rows.findIndex(
-    (row) => row[0] === data && row[1] === horario && row[4] !== "agendado", // aceita livre e bloqueado
+    (row) => row[0] === data && row[1] === horario && row[4] !== "agendado",
   );
 
   if (rowIndex === -1) return false;
@@ -204,7 +203,6 @@ async function cancelSlot(data, horario, telefone) {
   return true;
 }
 
-// ✅ NOVO: barbeiro pode cancelar qualquer agendamento sem precisar do telefone
 async function cancelSlotAdmin(data, horario) {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
@@ -222,7 +220,6 @@ async function cancelSlotAdmin(data, horario) {
 
   if (rowIndex === -1) return false;
 
-  // Salva o telefone do cliente para notificação futura se necessário
   const clientPhone = rows[rowIndex][3];
   const clientName = rows[rowIndex][2];
 
@@ -338,7 +335,6 @@ async function getAppointmentsForReminder(horasAntes) {
   return appointments;
 }
 
-// Retorna informações de um slot específico
 async function getSlotInfo(data, horario) {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
@@ -366,6 +362,33 @@ async function getSlotInfo(data, horario) {
   }
 }
 
+// Retorna agenda completa de um dia para o barbeiro
+async function getDaySchedule(data) {
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+  const sheetName = getSheetName(data);
+
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${sheetName}!A:F`,
+    });
+
+    const rows = response.data.values || [];
+    return rows
+      .slice(1)
+      .filter((row) => row[0] === data)
+      .map((row) => ({
+        horario: row[1],
+        nome: row[2] || "",
+        status: row[4] || "livre",
+      }))
+      .sort((a, b) => a.horario.localeCompare(b.horario));
+  } catch (e) {
+    return [];
+  }
+}
+
 module.exports = {
   getAvailableSlots,
   bookSlot,
@@ -377,4 +400,5 @@ module.exports = {
   getAppointmentsForReminder,
   countClientAppointmentsOnDay,
   getSlotInfo,
+  getDaySchedule,
 };
