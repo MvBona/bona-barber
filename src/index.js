@@ -29,6 +29,7 @@ const {
   rescheduleSlot,
   getAppointmentsForReminder,
   countClientAppointmentsOnDay,
+  getSlotInfo,
 } = require("./sheets");
 
 console.log("carregando ai...");
@@ -112,8 +113,11 @@ async function processBarberCommand(text) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
-  const currentYear = new Date().getFullYear();
-  const currentMonth = String(new Date().getMonth() + 1).padStart(2, "0");
+  const now = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
+  );
+  const currentYear = now.getFullYear();
+  const currentMonth = String(now.getMonth() + 1).padStart(2, "0");
 
   const monthNames = {
     janeiro: "01",
@@ -136,6 +140,15 @@ async function processBarberCommand(text) {
   }
 
   function extractDate(str) {
+    // Trata "hoje" e "amanhã"
+    if (str.includes("hoje")) {
+      return `${currentYear}-${currentMonth}-${String(now.getDate()).padStart(2, "0")}`;
+    }
+    if (str.includes("amanha") || str.includes("amanhã")) {
+      const tomorrow = new Date(now);
+      tomorrow.setDate(now.getDate() + 1);
+      return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
+    }
     const match = str.match(
       /(?:dia\s+)?(\d{1,2})[\/\s](?:do\s+|de\s+)?(\d{1,2}|janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:[\/\s](\d{4}))?/,
     );
@@ -153,6 +166,26 @@ async function processBarberCommand(text) {
     );
     if (!match) return null;
     return match[1].padStart(2, "0") + ":00";
+  }
+
+  // Extrai dois horários para reagendamento: "de 19h para 11h"
+  function extractTwoTimes(str) {
+    const match = str.match(/(\d{1,2})h?\s+(?:para|pro|pra)\s+(\d{1,2})h?/);
+    if (!match) return null;
+    return {
+      de: match[1].padStart(2, "0") + ":00",
+      para: match[2].padStart(2, "0") + ":00",
+    };
+  }
+
+  // Extrai duas datas para reagendamento: "de hoje para amanhã"
+  function extractTwoDates(str) {
+    const fromMatch = str.match(/(?:de\s+)?(.+?)\s+(?:para|pro|pra)\s+(.+)/);
+    if (!fromMatch) return null;
+    const from = extractDate(fromMatch[1]);
+    const to = extractDate(fromMatch[2]);
+    if (!from || !to) return null;
+    return { de: from, para: to };
   }
 
   function extractPeriod(str) {
@@ -180,7 +213,6 @@ async function processBarberCommand(text) {
     normalized.includes("libera");
 
   if (hasUnblock) {
-    // Desbloqueia horário específico: "desbloqueia 20h do dia 15/06"
     const timeMatch = extractTime(normalized);
     const dateMatch = extractDate(normalized);
 
@@ -192,7 +224,6 @@ async function processBarberCommand(text) {
         : `Não encontrei o horário ${timeMatch} bloqueado em ${d}/${m}.`;
     }
 
-    // Desbloqueia período: "desbloqueia 15/06 ao 22/06"
     const period = extractPeriod(normalized);
     if (period) {
       const count = await unblockPeriod(period.inicio, period.fim);
@@ -201,7 +232,6 @@ async function processBarberCommand(text) {
         : `Não encontrei horários bloqueados nesse período.`;
     }
 
-    // Desbloqueia dia inteiro: "desbloqueia dia 15/06"
     if (dateMatch) {
       const count = await unblockDay(dateMatch);
       const [y, m, d] = dateMatch.split("-");
@@ -210,7 +240,6 @@ async function processBarberCommand(text) {
         : `Não encontrei horários bloqueados em ${d}/${m}.`;
     }
 
-    // Desbloqueia só pelo dia: "desbloqueia dia 15"
     const onlyDay = normalized.match(/(?:dia\s+)?(\d{1,2})(?!\s*[\/h:])/);
     if (onlyDay) {
       const day = onlyDay[1].padStart(2, "0");
@@ -236,7 +265,6 @@ async function processBarberCommand(text) {
     const timeMatch = extractTime(normalized);
     const dateMatch = extractDate(normalized);
 
-    // Bloqueia horário específico: "bloqueia 20h do dia 15/06"
     if (timeMatch && dateMatch) {
       const count = await blockSlot(dateMatch, timeMatch);
       const [y, m, d] = dateMatch.split("-");
@@ -245,7 +273,6 @@ async function processBarberCommand(text) {
         : `Não encontrei o horário ${timeMatch} em ${d}/${m}.`;
     }
 
-    // Bloqueia período: "bloqueia 15/06 ao 22/06"
     const period = extractPeriod(normalized);
     if (period) {
       const count = await blockPeriod(period.inicio, period.fim);
@@ -254,7 +281,6 @@ async function processBarberCommand(text) {
         : `Não encontrei horários disponíveis nesse período.`;
     }
 
-    // Bloqueia dia inteiro: "bloqueia dia 15/06"
     if (dateMatch) {
       const count = await blockDay(dateMatch);
       const [y, m, d] = dateMatch.split("-");
@@ -264,41 +290,67 @@ async function processBarberCommand(text) {
     }
   }
 
-  // ─── AGENDAMENTO ADMIN ───
-  // Padrão: "agenda João 15/06 às 14h" ou "marca João dia 15/06 14h"
-  const hasBook =
-    normalized.includes("agenda") ||
-    normalized.includes("marca") ||
-    normalized.includes("reserva");
+  // ─── REAGENDAMENTO ADMIN ───
+  // "Passa Juliana de hoje 19h para amanhã 11h"
+  const hasReschedule =
+    normalized.includes("passa") ||
+    normalized.includes("muda") ||
+    normalized.includes("move") ||
+    normalized.includes("transfere") ||
+    normalized.includes("reagenda");
 
-  if (hasBook) {
-    const timeMatch = extractTime(normalized);
-    const dateMatch = extractDate(normalized);
+  if (hasReschedule) {
+    const times = extractTwoTimes(normalized);
+    const dates = extractTwoDates(normalized);
 
-    if (timeMatch && dateMatch) {
-      // Extrai nome — palavra(s) após o comando e antes da data/hora
-      const nameMatch = normalized.match(
-        /(?:agenda|marca|reserva)\s+(?:pra?\s+|para\s+)?([a-záàãâéêíóôõúç\s]+?)(?:\s+dia|\s+\d{1,2}[\/h])/,
+    if (times && dates) {
+      // Busca info do cliente no horário original
+      const slotInfo = await getSlotInfo(dates.de, times.de);
+
+      if (!slotInfo) {
+        const [y, m, d] = dates.de.split("-");
+        return `Não encontrei agendamento em ${d}/${m} às ${times.de}.`;
+      }
+
+      // Verifica se o horário novo já está ocupado
+      const newSlotInfo = await getSlotInfo(dates.para, times.para);
+      if (newSlotInfo && newSlotInfo.status === "agendado") {
+        const [y, m, d] = dates.para.split("-");
+        // C — conflito: pergunta se quer realocar
+        return `⚠️ O horário ${times.para} de ${d}/${m} já está com *${newSlotInfo.nome}*.\nQuer realocar esse cliente também? Responda "sim, realoca ${newSlotInfo.nome} para [novo horário]" ou escolha outro horário para ${slotInfo.nome}.`;
+      }
+
+      // Cancela o horário atual e agenda no novo
+      await cancelSlotAdmin(dates.de, times.de);
+      const booked = await bookSlotAdmin(
+        dates.para,
+        times.para,
+        slotInfo.nome,
+        slotInfo.telefone,
       );
-      const clientName = nameMatch
-        ? nameMatch[1].trim().replace(/\b\w/g, (c) => c.toUpperCase())
-        : "Cliente";
 
-      const booked = await bookSlot(
-        dateMatch,
-        timeMatch,
-        clientName,
-        BARBERSHOP_PHONE,
+      if (!booked) {
+        const [y, m, d] = dates.para.split("-");
+        return `Não consegui agendar no dia ${d}/${m} às ${times.para}. Verifique se o horário existe.`;
+      }
+
+      // A — notifica o cliente
+      const [yd, md, dd] = dates.de.split("-");
+      const [yp, mp, dp] = dates.para.split("-");
+      await sendMessage(
+        slotInfo.telefone,
+        `Olá ${slotInfo.nome}! Seu horário foi alterado de ${dd}/${md} às ${times.de} para ${dp}/${mp} às ${times.para} pela barbearia.`,
       );
-      const [y, m, d] = dateMatch.split("-");
-      return booked
-        ? `✅ Agendado: ${clientName} — ${d}/${m} às ${timeMatch}.`
-        : `Não consegui agendar ${clientName} em ${d}/${m} às ${timeMatch}. Verifique se o horário existe.`;
+
+      await notifyBarber(
+        `🔄 *Reagendamento admin*\n👤 ${slotInfo.nome}\n📅 ${dd}/${md} às ${times.de} → ${dp}/${mp} às ${times.para}`,
+      );
+
+      return `✅ ${slotInfo.nome} reagendado de ${dd}/${md} às ${times.de} para ${dp}/${mp} às ${times.para}. Cliente notificado.`;
     }
   }
 
   // ─── CANCELAMENTO ADMIN ───
-  // Padrão: "cancela dia 15/06 às 14h"
   const hasCancel =
     normalized.includes("cancela") ||
     normalized.includes("cancelar") ||
@@ -313,7 +365,7 @@ async function processBarberCommand(text) {
       const cancelled = await cancelSlotAdmin(dateMatch, timeMatch);
       const [y, m, d] = dateMatch.split("-");
       if (cancelled) {
-        // Notifica o cliente que o barbeiro cancelou
+        // ✅ A — notifica o cliente
         await sendMessage(
           cancelled.clientPhone,
           `Olá ${cancelled.clientName}! Seu horário do dia ${d}/${m} às ${timeMatch} foi cancelado pela barbearia. Entre em contato para reagendar.`,
@@ -321,6 +373,50 @@ async function processBarberCommand(text) {
         return `✅ Horário ${d}/${m} às ${timeMatch} cancelado. Cliente notificado.`;
       }
       return `Não encontrei agendamento em ${d}/${m} às ${timeMatch}.`;
+    }
+  }
+
+  // ─── AGENDAMENTO ADMIN ───
+  const hasBook =
+    normalized.includes("agenda") ||
+    normalized.includes("marca") ||
+    normalized.includes("reserva");
+
+  if (hasBook) {
+    const timeMatch = extractTime(normalized);
+    const dateMatch = extractDate(normalized);
+
+    if (timeMatch && dateMatch) {
+      const nameMatch = normalized.match(
+        /(?:agenda|marca|reserva)\s+(?:pra?\s+|para\s+)?([a-záàãâéêíóôõúç\s]+?)(?:\s+dia|\s+hoje|\s+amanha|\s+\d{1,2}[\/h])/,
+      );
+      const clientName = nameMatch
+        ? nameMatch[1].trim().replace(/\b\w/g, (c) => c.toUpperCase())
+        : "Cliente";
+
+      // ✅ Verifica conflito antes de agendar
+      const existing = await getSlotInfo(dateMatch, timeMatch);
+      if (existing && existing.status === "agendado") {
+        const [y, m, d] = dateMatch.split("-");
+        return `⚠️ Horário ${d}/${m} às ${timeMatch} já está com *${existing.nome}*. Quer outro horário para ${clientName}?`;
+      }
+
+      const booked = await bookSlotAdmin(
+        dateMatch,
+        timeMatch,
+        clientName,
+        BARBERSHOP_PHONE,
+      );
+      const [y, m, d] = dateMatch.split("-");
+
+      if (booked) {
+        // ✅ A — notifica o barbeiro (já que agendou por ele)
+        await notifyBarber(
+          `✅ *Agendamento admin*\n👤 ${clientName}\n📅 ${d}/${m}\n🕐 ${timeMatch}`,
+        );
+        return `✅ Agendado: ${clientName} — ${d}/${m} às ${timeMatch}.`;
+      }
+      return `Não consegui agendar ${clientName} em ${d}/${m} às ${timeMatch}.`;
     }
   }
 
@@ -334,13 +430,11 @@ async function processAccumulatedMessages(phone, name) {
 
   if (messages.length === 0) return;
 
-  // Junta todas as mensagens em uma só
   const combinedText = messages.join(" ");
   console.log(
     `Processando ${messages.length} mensagem(ns) de ${name} (${phone}): ${combinedText}`,
   );
 
-  // Verifica se é comando do barbeiro
   if (phone === BARBERSHOP_PHONE) {
     const commandResponse = await processBarberCommand(combinedText);
     if (commandResponse) {
@@ -368,6 +462,10 @@ async function processAccumulatedMessages(phone, name) {
           await sendMessage(
             phone,
             `Ops! O horário ${result.horario} não está mais disponível. Escolhe outro? 😅`,
+          );
+          // D — aciona barbeiro em caso de conflito persistente
+          await notifyBarber(
+            `⚠️ *Conflito de horário*\n👤 ${name}\n📞 ${phone}\nTentou marcar ${result.data} às ${result.horario} mas já estava ocupado. Pode precisar de ajuda.`,
           );
         } else {
           await sendMessage(phone, result.resposta);
@@ -408,6 +506,10 @@ async function processAccumulatedMessages(phone, name) {
         await sendMessage(
           phone,
           `Não consegui reagendar. Confirma os horários? 🤔`,
+        );
+        // D — aciona barbeiro em conflito de reagendamento
+        await notifyBarber(
+          `⚠️ *Conflito de reagendamento*\n👤 ${name}\n📞 ${phone}\nTentou reagendar para ${result.data_nova} às ${result.horario_novo} mas não conseguiu.`,
         );
       } else {
         await sendMessage(phone, result.resposta);
@@ -466,17 +568,11 @@ app.post("/webhook", async (req, res) => {
 
   if (!text) return res.sendStatus(200);
 
-  if (!pendingMessages.has(phone)) {
-    pendingMessages.set(phone, []);
-  }
+  if (!pendingMessages.has(phone)) pendingMessages.set(phone, []);
   pendingMessages.get(phone).push(text);
 
-  // Cancela timer anterior se existir
-  if (debounceTimers.has(phone)) {
-    clearTimeout(debounceTimers.get(phone));
-  }
+  if (debounceTimers.has(phone)) clearTimeout(debounceTimers.get(phone));
 
-  // Agenda processamento após 30s de inatividade
   const timer = setTimeout(() => {
     processAccumulatedMessages(phone, name);
   }, 30 * 1000);

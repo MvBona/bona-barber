@@ -338,6 +338,34 @@ async function getAppointmentsForReminder(horasAntes) {
   return appointments;
 }
 
+// Retorna informações de um slot específico
+async function getSlotInfo(data, horario) {
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+  const sheetName = getSheetName(data);
+
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${sheetName}!A:F`,
+    });
+
+    const rows = response.data.values || [];
+    const row = rows.find((r) => r[0] === data && r[1] === horario);
+    if (!row) return null;
+
+    return {
+      data: row[0],
+      horario: row[1],
+      nome: row[2] || "",
+      telefone: row[3] || "",
+      status: row[4] || "livre",
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 module.exports = {
   getAvailableSlots,
   bookSlot,
@@ -348,4 +376,5 @@ module.exports = {
   getClientAppointments,
   getAppointmentsForReminder,
   countClientAppointmentsOnDay,
+  getSlotInfo,
 };

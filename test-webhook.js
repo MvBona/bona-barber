@@ -12,7 +12,7 @@ async function sendMsg(
     text: { message },
   };
 
-  // ✅ sem await — dispara sem esperar resposta
+  // Sem await — dispara sem esperar resposta
   fetch(`http://localhost:3000/webhook`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -30,6 +30,7 @@ async function test() {
   await sendMsg("Blz?");
   await sendMsg("Ta tendo horario?");
   await sendMsg("Hj ainda?");
+  await sendMsg("Se n tiver marca pra mim amanhã no primeiro horario?");
 
   console.log("Mensagens enviadas! Aguardando 30s para o bot processar...");
 }
