@@ -168,9 +168,9 @@ async function processBarberCommand(text) {
     return match[1].padStart(2, "0") + ":00";
   }
 
-  // Extrai dois horários para reagendamento: "de 19h para 11h"
+  // Aceita texto entre os horários
   function extractTwoTimes(str) {
-    const match = str.match(/(\d{1,2})h?\s+(?:para|pro|pra)\s+(\d{1,2})h?/);
+    const match = str.match(/(\d{1,2})h?\s+(?:para|pro|pra).+?(\d{1,2})h/);
     if (!match) return null;
     return {
       de: match[1].padStart(2, "0") + ":00",
@@ -178,12 +178,32 @@ async function processBarberCommand(text) {
     };
   }
 
-  // Extrai duas datas para reagendamento: "de hoje para amanhã"
+  // Trata "depois de amanhã" explicitamente
   function extractTwoDates(str) {
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    const dayAfter = new Date(now);
+    dayAfter.setDate(now.getDate() + 2);
+
+    const fmt = (d) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
     const fromMatch = str.match(/(?:de\s+)?(.+?)\s+(?:para|pro|pra)\s+(.+)/);
     if (!fromMatch) return null;
-    const from = extractDate(fromMatch[1]);
-    const to = extractDate(fromMatch[2]);
+
+    const fromStr = fromMatch[1];
+    const toStr = fromMatch[2];
+
+    function parseDateStr(s) {
+      if (s.includes("depois de amanha") || s.includes("depois de amanha"))
+        return fmt(dayAfter);
+      if (s.includes("amanha")) return fmt(tomorrow);
+      if (s.includes("hoje")) return fmt(now);
+      return extractDate(s);
+    }
+
+    const from = parseDateStr(fromStr);
+    const to = parseDateStr(toStr);
     if (!from || !to) return null;
     return { de: from, para: to };
   }

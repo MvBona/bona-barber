@@ -2,8 +2,8 @@ require("dotenv").config();
 
 async function sendMsg(
   message,
-  phone = "5545999990001",
-  name = "Cliente Teste",
+  phone = "595973413527",
+  name = "Barbeiro",
 ) {
   const body = {
     fromMe: false,
@@ -26,11 +26,7 @@ async function sendMsg(
 }
 
 async function test() {
-  await sendMsg("Opa");
-  await sendMsg("Blz?");
-  await sendMsg("Ta tendo horario?");
-  await sendMsg("Hj ainda?");
-  await sendMsg("Se n tiver marca pra mim amanhã no primeiro horario?");
+  await sendMsg("passa Fernanda Costa de amanhã 15h para amanhã 11h");
 
   console.log("Mensagens enviadas! Aguardando 30s para o bot processar...");
 }
