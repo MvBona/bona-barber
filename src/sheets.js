@@ -44,7 +44,6 @@ function isSlotInFuture(data, horario) {
   return slotDate > now;
 }
 
-// Verifica se o horário está a menos de 2h
 function isWithinTwoHours(data, horario) {
   const now = new Date(
     new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
@@ -173,7 +172,6 @@ async function bookSlotAdmin(data, horario, nome, telefone) {
   return true;
 }
 
-// Retorna "bloqueado_tempo" se estiver a menos de 2h
 async function cancelSlot(data, horario, telefone) {
   if (isWithinTwoHours(data, horario)) return "bloqueado_tempo";
 
@@ -249,7 +247,6 @@ async function rescheduleSlot(
   nome,
   telefone,
 ) {
-  // Também bloqueia reagendamento dentro de 2h
   if (isWithinTwoHours(dataAtual, horarioAtual)) return "bloqueado_tempo";
 
   const cancelado = await cancelSlot(dataAtual, horarioAtual, telefone);
@@ -397,6 +394,45 @@ async function getDaySchedule(data) {
   }
 }
 
+// Atualiza nome de um agendamento pelo telefone
+async function updateSlotName(telefone, nome) {
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+  const sheetNames = getRelevantSheetNames();
+
+  for (const sheetName of sheetNames) {
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${sheetName}!A:F`,
+      });
+
+      const rows = response.data.values || [];
+      const updates = [];
+
+      rows.slice(1).forEach((row, i) => {
+        if (
+          row[3] === telefone &&
+          row[4] === "agendado" &&
+          (!row[2] || row[2].trim() === "")
+        ) {
+          updates.push({
+            range: `${sheetName}!C${i + 2}`,
+            values: [[nome]],
+          });
+        }
+      });
+
+      if (updates.length > 0) {
+        await sheets.spreadsheets.values.batchUpdate({
+          spreadsheetId: SPREADSHEET_ID,
+          requestBody: { valueInputOption: "RAW", data: updates },
+        });
+      }
+    } catch (e) {}
+  }
+}
+
 module.exports = {
   getAvailableSlots,
   bookSlot,
@@ -409,4 +445,5 @@ module.exports = {
   countClientAppointmentsOnDay,
   getSlotInfo,
   getDaySchedule,
+  updateSlotName,
 };

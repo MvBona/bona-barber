@@ -31,15 +31,11 @@ const {
   countClientAppointmentsOnDay,
   getSlotInfo,
   getDaySchedule,
+  updateSlotName, // ✅ NOVO
 } = require("./sheets");
 
 console.log("carregando ai...");
-const {
-  interpretMessage,
-  clearAllHistories,
-  getValidatedName,
-  setValidatedName,
-} = require("./ai");
+const { interpretMessage, clearAllHistories } = require("./ai");
 
 console.log("carregando transcribe...");
 const { transcribeAudio } = require("./transcribe");
@@ -66,6 +62,30 @@ const BARBERSHOP_PHONE = process.env.BARBERSHOP_PHONE;
 
 const debounceTimers = new Map();
 const pendingMessages = new Map();
+// Estado "aguardando nome" por cliente
+const waitingForName = new Map();
+
+// Verifica se nome parece real
+function isValidName(name) {
+  if (!name || name.trim().length < 3) return false;
+  if (/\p{Emoji}/u.test(name)) return false;
+  if (/\d/.test(name)) return false;
+  const suspicious = [
+    "uber",
+    "taxi",
+    "delivery",
+    "ifood",
+    "moto",
+    "bot",
+    "test",
+    "zap",
+    "whats",
+  ];
+  if (suspicious.some((w) => name.toLowerCase().includes(w))) return false;
+  if (name === name.toUpperCase() && name.replace(/\s/g, "").length <= 4)
+    return false;
+  return true;
+}
 
 async function sendMessage(phone, message) {
   const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`;
@@ -220,7 +240,6 @@ async function processBarberCommand(text) {
     };
   }
 
-  // ─── DESBLOQUEIO ───
   const hasUnblock =
     normalized.includes("desbloquear") ||
     normalized.includes("desbloqueia") ||
@@ -264,7 +283,6 @@ async function processBarberCommand(text) {
     }
   }
 
-  // ─── BLOQUEIO ───
   const hasBlock =
     normalized.includes("bloquear") ||
     normalized.includes("bloqueia") ||
@@ -300,7 +318,6 @@ async function processBarberCommand(text) {
     }
   }
 
-  // ─── REAGENDAMENTO ADMIN ───
   const hasReschedule =
     normalized.includes("passa") ||
     normalized.includes("muda") ||
@@ -319,19 +336,17 @@ async function processBarberCommand(text) {
         return `Não encontrei agendamento em ${d}/${m} às ${times.de}.`;
       }
 
-      // Verifica se horário novo existe ANTES de cancelar
       const newSlotInfo = await getSlotInfo(dates.para, times.para);
       if (!newSlotInfo) {
         const [y, m, d] = dates.para.split("-");
-        return `O horário ${times.para} não existe na agenda de ${d}/${m}. Verifique a data e horário.`;
+        return `O horário ${times.para} não existe na agenda de ${d}/${m}.`;
       }
 
       if (newSlotInfo.status === "agendado") {
         const [y, m, d] = dates.para.split("-");
-        return `⚠️ O horário ${times.para} de ${d}/${m} já está com *${newSlotInfo.nome}*.\nEscolha outro horário para ${slotInfo.nome} ou use "cancela ${d}/${m} às ${times.para}" primeiro.`;
+        return `⚠️ O horário ${times.para} de ${d}/${m} já está com *${newSlotInfo.nome}*.\nEscolha outro horário para ${slotInfo.nome}.`;
       }
 
-      // Só cancela depois de confirmar que o novo existe
       await cancelSlotAdmin(dates.de, times.de);
       const booked = await bookSlotAdmin(
         dates.para,
@@ -341,31 +356,25 @@ async function processBarberCommand(text) {
       );
 
       if (!booked) {
-        // Reverte
         await bookSlotAdmin(
           dates.de,
           times.de,
           slotInfo.nome,
           slotInfo.telefone,
         );
-        const [y, m, d] = dates.para.split("-");
-        return `Não consegui agendar em ${d}/${m} às ${times.para}. Horário revertido.`;
+        return `Não consegui agendar. Horário revertido.`;
       }
 
       const [yd, md, dd] = dates.de.split("-");
       const [yp, mp, dp] = dates.para.split("-");
-
-      // Notifica só o cliente, não o barbeiro (ele fez o comando)
       await sendMessage(
         slotInfo.telefone,
         `Olá ${slotInfo.nome}! Seu horário foi alterado de ${dd}/${md} às ${times.de} para ${dp}/${mp} às ${times.para} pela barbearia.`,
       );
-
       return `✅ ${slotInfo.nome} reagendado de ${dd}/${md} às ${times.de} para ${dp}/${mp} às ${times.para}. Cliente notificado.`;
     }
   }
 
-  // ─── CANCELAMENTO ADMIN ───
   const hasCancel =
     normalized.includes("cancela") ||
     normalized.includes("cancelar") ||
@@ -379,7 +388,6 @@ async function processBarberCommand(text) {
       const cancelled = await cancelSlotAdmin(dateMatch, timeMatch);
       const [y, m, d] = dateMatch.split("-");
       if (cancelled) {
-        // ✅ MUDANÇA: notifica só o cliente
         await sendMessage(
           cancelled.clientPhone,
           `Olá ${cancelled.clientName}! Seu horário do dia ${d}/${m} às ${timeMatch} foi cancelado pela barbearia. Entre em contato para reagendar.`,
@@ -390,7 +398,6 @@ async function processBarberCommand(text) {
     }
   }
 
-  // ─── AGENDAMENTO ADMIN ───
   const hasBook =
     normalized.includes("agenda") ||
     normalized.includes("marca") ||
@@ -409,7 +416,7 @@ async function processBarberCommand(text) {
       const existing = await getSlotInfo(dateMatch, timeMatch);
       if (existing && existing.status === "agendado") {
         const [y, m, d] = dateMatch.split("-");
-        return `⚠️ Horário ${d}/${m} às ${timeMatch} já está com *${existing.nome}*. Quer outro horário para ${clientName}?`;
+        return `⚠️ Horário ${d}/${m} às ${timeMatch} já está com *${existing.nome}*.`;
       }
       const booked = await bookSlotAdmin(
         dateMatch,
@@ -424,7 +431,6 @@ async function processBarberCommand(text) {
     }
   }
 
-  // ─── AGENDA DO DIA ───
   const hasAgenda =
     normalized.includes("agenda hoje") ||
     normalized.includes("agenda amanha") ||
@@ -465,7 +471,6 @@ async function processBarberCommand(text) {
     }
   }
 
-  // ─── AJUDA ───
   const hasHelp =
     normalized === "ajuda" ||
     normalized === "help" ||
@@ -510,48 +515,70 @@ async function processAccumulatedMessages(phone, name) {
     }
   }
 
-  // Valida nome, mas detecta resposta de nome se inválido
-  const validName = getValidatedName(phone, name);
-  if (!validName) {
+  // Verifica se está aguardando nome
+  if (waitingForName.has(phone)) {
     const trimmed = combinedText.trim();
     const words = trimmed
       .split(/\s+/)
       .filter((w) => /^[a-záàãâéêíóôõúçA-Z]+$/i.test(w));
+    const blockedWords = [
+      "bom",
+      "boa",
+      "dia",
+      "tarde",
+      "noite",
+      "oi",
+      "ola",
+      "hey",
+      "opa",
+      "sim",
+      "nao",
+      "ok",
+      "ate",
+      "tchau",
+      "obrigado",
+      "obrigada",
+      "quero",
+      "preciso",
+    ];
 
-    if (words.length >= 1 && words.length <= 4 && trimmed.length >= 3) {
+    const hasBlocked = words.some((w) =>
+      blockedWords.includes(w.toLowerCase()),
+    );
+
+    if (
+      !hasBlocked &&
+      words.length >= 1 &&
+      words.length <= 4 &&
+      trimmed.length >= 3
+    ) {
       const nomeLimpo = words
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
         .join(" ");
-      setValidatedName(phone, nomeLimpo);
-      await sendMessage(phone, `Obrigado, ${nomeLimpo}! Como posso te ajudar?`);
+      waitingForName.delete(phone);
+      // Atualiza nome na planilha
+      await updateSlotName(phone, nomeLimpo);
+      await sendMessage(
+        phone,
+        `Obrigado, ${nomeLimpo}! Agendamento confirmado.`,
+      );
+      await notifyBarber(`✅ *Nome atualizado*\n👤 ${nomeLimpo}\n📞 ${phone}`);
       return;
     }
 
+    // Não parece nome — pede de novo
     await sendMessage(
       phone,
-      `Para te atender, preciso do seu nome. Como posso te chamar?`,
+      `Não entendi. Por favor me diz seu nome completo.`,
     );
     return;
   }
 
   try {
     const slots = await getAvailableSlots();
-    const result = await interpretMessage(
-      combinedText,
-      slots,
-      validName,
-      phone,
-    );
+    const result = await interpretMessage(combinedText, slots, name, phone);
 
     console.log("Intenção identificada:", result);
-
-    // Trata informar_nome
-    if (result.acao === "informar_nome" && result.nome_informado) {
-      const nomeInformado = result.nome_informado.trim();
-      setValidatedName(phone, nomeInformado);
-      await sendMessage(phone, result.resposta);
-      return;
-    }
 
     if (result.acao === "agendar" && result.data && result.horario) {
       const count = await countClientAppointmentsOnDay(phone, result.data);
@@ -561,37 +588,40 @@ async function processAccumulatedMessages(phone, name) {
           "Você já tem 2 horários marcados nesse dia, que é o limite. Cancela um se quiser trocar.",
         );
       } else {
-        const booked = await bookSlot(
-          result.data,
-          result.horario,
-          validName,
-          phone,
-        );
+        const booked = await bookSlot(result.data, result.horario, name, phone);
         if (!booked) {
           await sendMessage(
             phone,
             `Ops! O horário ${result.horario} não está mais disponível. Escolhe outro? 😅`,
           );
           await notifyBarber(
-            `⚠️ *Conflito de horário*\n👤 ${validName}\n📞 ${phone}\nTentou marcar ${result.data} às ${result.horario} mas já estava ocupado.`,
+            `⚠️ *Conflito de horário*\n👤 ${name}\n📞 ${phone}\nTentou marcar ${result.data} às ${result.horario} mas já estava ocupado.`,
           );
         } else {
           await sendMessage(phone, result.resposta);
           await notifyBarber(
-            `✅ *Novo agendamento*\n👤 ${validName}\n📅 ${result.data}\n🕐 ${result.horario}`,
+            `✅ *Novo agendamento*\n👤 ${name}\n📅 ${result.data}\n🕐 ${result.horario}`,
           );
+
+          // Pede nome se inválido, após confirmar agendamento
+          if (!isValidName(name)) {
+            waitingForName.set(phone, true);
+            await sendMessage(
+              phone,
+              `Para finalizar, preciso do seu nome completo. Como posso te chamar?`,
+            );
+          }
         }
       }
     } else if (result.acao === "cancelar" && result.data && result.horario) {
       const cancelled = await cancelSlot(result.data, result.horario, phone);
       if (cancelled === "bloqueado_tempo") {
-        // Bloqueio de cancelamento a menos de 2h
         await sendMessage(
           phone,
           "Não é possível cancelar com menos de 2h de antecedência. Entre em contato direto com a barbearia.",
         );
         await notifyBarber(
-          `⚠️ *Tentativa de cancelamento tardio*\n👤 ${validName}\n📞 ${phone}\n📅 ${result.data} às ${result.horario}`,
+          `⚠️ *Tentativa de cancelamento tardio*\n👤 ${name}\n📞 ${phone}\n📅 ${result.data} às ${result.horario}`,
         );
       } else if (!cancelled) {
         await sendMessage(
@@ -601,7 +631,7 @@ async function processAccumulatedMessages(phone, name) {
       } else {
         await sendMessage(phone, result.resposta);
         await notifyBarber(
-          `❌ *Cancelamento*\n👤 ${validName}\n📅 ${result.data}\n🕐 ${result.horario}`,
+          `❌ *Cancelamento*\n👤 ${name}\n📅 ${result.data}\n🕐 ${result.horario}`,
         );
       }
     } else if (
@@ -616,7 +646,7 @@ async function processAccumulatedMessages(phone, name) {
         result.horario,
         result.data_nova,
         result.horario_novo,
-        validName,
+        name,
         phone,
       );
       if (rescheduled === "bloqueado_tempo") {
@@ -625,7 +655,7 @@ async function processAccumulatedMessages(phone, name) {
           "Não é possível reagendar com menos de 2h de antecedência. Entre em contato direto com a barbearia.",
         );
         await notifyBarber(
-          `⚠️ *Tentativa de reagendamento tardio*\n👤 ${validName}\n📞 ${phone}\n📅 ${result.data} às ${result.horario}`,
+          `⚠️ *Tentativa de reagendamento tardio*\n👤 ${name}\n📞 ${phone}\n📅 ${result.data} às ${result.horario}`,
         );
       } else if (!rescheduled) {
         await sendMessage(
@@ -633,12 +663,12 @@ async function processAccumulatedMessages(phone, name) {
           `Não consegui reagendar. Confirma os horários? 🤔`,
         );
         await notifyBarber(
-          `⚠️ *Conflito de reagendamento*\n👤 ${validName}\n📞 ${phone}\nTentou reagendar para ${result.data_nova} às ${result.horario_novo} mas não conseguiu.`,
+          `⚠️ *Conflito de reagendamento*\n👤 ${name}\n📞 ${phone}\nTentou reagendar para ${result.data_nova} às ${result.horario_novo} mas não conseguiu.`,
         );
       } else {
         await sendMessage(phone, result.resposta);
         await notifyBarber(
-          `🔄 *Reagendamento*\n👤 ${validName}\n📅 ${result.data} às ${result.horario}\n➡️ ${result.data_nova} às ${result.horario_novo}`,
+          `🔄 *Reagendamento*\n👤 ${name}\n📅 ${result.data} às ${result.horario}\n➡️ ${result.data_nova} às ${result.horario_novo}`,
         );
       }
     } else {
@@ -651,7 +681,7 @@ async function processAccumulatedMessages(phone, name) {
       "Desculpe, tive um problema. Tenta de novo em instantes!",
     );
     await notifyBarber(
-      `⚠️ *Atenção manual*\n👤 ${validName || name}\n📞 ${phone}\nCliente pode precisar de ajuda.`,
+      `⚠️ *Atenção manual*\n👤 ${name}\n📞 ${phone}\nCliente pode precisar de ajuda.`,
     );
   }
 }
@@ -697,7 +727,6 @@ app.post("/webhook", async (req, res) => {
 
   if (debounceTimers.has(phone)) clearTimeout(debounceTimers.get(phone));
 
-  // Barbeiro 3s, clientes 30s
   const debounceTime = phone === BARBERSHOP_PHONE ? 3000 : 30 * 1000;
   const timer = setTimeout(() => {
     processAccumulatedMessages(phone, name);
@@ -713,6 +742,7 @@ schedule.schedule(
   () => {
     console.log("Limpando histórico de conversas...");
     clearAllHistories();
+    waitingForName.clear(); // limpa também ao resetar
     console.log("Histórico limpo!");
   },
   { timezone: "America/Sao_Paulo" },
