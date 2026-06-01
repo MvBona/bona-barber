@@ -487,7 +487,6 @@ async function processBarberCommand(text) {
     hasUnblock ||
     hasReschedule ||
     hasCancel ||
-    hasBook ||
     hasAgenda;
   if (pareceComando)
     return `Não entendi. Digite *ajuda* para ver os comandos disponíveis.`;
@@ -584,6 +583,50 @@ async function processAccumulatedMessages(phone, name) {
       `Não entendi. Por favor me diz seu nome completo.`,
     );
     return;
+  }
+
+  // Comandos de ajuda e contato do barbeiro (somente clientes)
+  if (phone !== BARBERSHOP_PHONE) {
+    const norm = combinedText
+      .toLowerCase()
+      .trim()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "");
+
+    const isHelp =
+      norm === "ajuda" ||
+      norm === "help" ||
+      norm === "comandos" ||
+      norm.includes("como funciona") ||
+      norm.includes("o que voce faz") ||
+      norm.includes("o que voce pode");
+
+    if (isHelp) {
+      await sendMessage(
+        phone,
+        `🛠️ *Como posso te ajudar?*\n\n📅 *Ver horários disponíveis:*\n"tem horário hoje?"\n"quais horários amanhã?"\n\n✂️ *Agendar:*\n"quero marcar às 14h amanhã"\n\n❌ *Cancelar:*\n"quero cancelar meu horário"\n\n🔄 *Reagendar:*\n"quero mudar meu horário de sexta pra sábado"\n\n📞 *Falar com o barbeiro:*\nDigite *"barbeiro"* a qualquer momento`,
+      );
+      return;
+    }
+
+    const wantsBarbeiro =
+      norm === "barbeiro" ||
+      norm.includes("falar com barbeiro") ||
+      norm.includes("falar com atendente") ||
+      norm.includes("quero o barbeiro") ||
+      norm.includes("chamar barbeiro") ||
+      norm.includes("atendimento humano");
+
+    if (wantsBarbeiro) {
+      await sendMessage(
+        phone,
+        `Avisando o barbeiro! Ele vai entrar em contato em breve. 📞`,
+      );
+      await notifyBarber(
+        `📞 *Cliente quer falar diretamente*\n👤 ${name}\n📞 ${phone}`,
+      );
+      return;
+    }
   }
 
   try {
@@ -688,23 +731,35 @@ async function processAccumulatedMessages(phone, name) {
         : null;
 
       if (dates) {
+        const now = new Date(
+          new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
+        );
         const parts = [];
         for (const data of dates) {
           const daySchedule = await getDaySchedule(data);
           if (daySchedule.length === 0) continue;
+          const [year, month, day] = data.split("-").map(Number);
           const [, m, d] = data.split("-");
-          const lines = daySchedule.map((s) => {
-            if (s.status === "livre") return `⚪ ${s.horario} — livre`;
-            if (s.status === "bloqueado") return `🔴 ${s.horario} — bloqueado`;
-            return `🟢 ${s.horario} — ocupado`;
-          });
+          const lines = daySchedule
+            .filter((s) => {
+              const [h, min] = s.horario.split(":").map(Number);
+              return new Date(year, month - 1, day, h, min) > now;
+            })
+            .map((s) => {
+              if (s.status === "livre") return `⚪ ${s.horario} — livre`;
+              if (s.status === "bloqueado") return `🔴 ${s.horario} — bloqueado`;
+              return `🟢 ${s.horario} — ocupado`;
+            });
+          if (lines.length === 0) continue;
           parts.push(`📅 *Agenda ${d}/${m}*\n\n${lines.join("\n")}`);
         }
         if (parts.length === 0) {
-          await sendMessage(phone, result.resposta || "Não tem horários cadastrados para essa data.");
+          await sendMessage(phone, result.resposta || "Não tem mais horários disponíveis para essa data.");
         } else {
           const intro = result.resposta ? `${result.resposta}\n\n` : "";
-          await sendMessage(phone, `${intro}${parts.join("\n\n")}`);
+          const msg = `${intro}${parts.join("\n\n")}`;
+          await sendMessage(phone, msg);
+          addToHistory(phone, "assistant", `[Agenda exibida para: ${dates.join(", ")}]\n${msg}`);
         }
       } else {
         await sendMessage(phone, result.resposta);
