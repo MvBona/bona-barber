@@ -256,30 +256,30 @@ async function processBarberCommand(text) {
       const count = await unblockSlot(dateMatch, timeMatch);
       const [y, m, d] = dateMatch.split("-");
       return count > 0
-        ? `✅ Horário ${timeMatch} do dia ${d}/${m} desbloqueado.`
-        : `Não encontrei o horário ${timeMatch} bloqueado em ${d}/${m}.`;
+        ? `⚪ ${timeMatch} de ${d}/${m} liberado.`
+        : `❌ Horário ${timeMatch} de ${d}/${m} não estava bloqueado.`;
     }
     const period = extractPeriod(normalized);
     if (period) {
       const count = await unblockPeriod(period.inicio, period.fim);
       return count > 0
-        ? `✅ Período desbloqueado. ${count} horário(s) liberado(s).`
-        : `Não encontrei horários bloqueados nesse período.`;
+        ? `⚪ Período liberado — ${count} horário(s) desbloqueado(s).`
+        : `❌ Nenhum horário bloqueado encontrado nesse período.`;
     }
     if (dateMatch) {
       const count = await unblockDay(dateMatch);
       const [y, m, d] = dateMatch.split("-");
       return count > 0
-        ? `✅ Dia ${d}/${m} desbloqueado. ${count} horário(s) liberado(s).`
-        : `Não encontrei horários bloqueados em ${d}/${m}.`;
+        ? `⚪ ${d}/${m} liberado — ${count} horário(s) desbloqueado(s).`
+        : `❌ Nenhum horário bloqueado em ${d}/${m}.`;
     }
     const onlyDay = normalized.match(/(?:dia\s+)?(\d{1,2})(?!\s*[\/h:])/);
     if (onlyDay) {
       const day = onlyDay[1].padStart(2, "0");
       const count = await unblockDay(`${currentYear}-${currentMonth}-${day}`);
       return count > 0
-        ? `✅ Dia ${day}/${currentMonth} desbloqueado. ${count} horário(s) liberado(s).`
-        : `Não encontrei horários bloqueados em ${day}/${currentMonth}.`;
+        ? `⚪ ${day}/${currentMonth} liberado — ${count} horário(s) desbloqueado(s).`
+        : `❌ Nenhum horário bloqueado em ${day}/${currentMonth}.`;
     }
   }
 
@@ -299,22 +299,22 @@ async function processBarberCommand(text) {
       const count = await blockSlot(dateMatch, timeMatch);
       const [y, m, d] = dateMatch.split("-");
       return count > 0
-        ? `✅ Horário ${timeMatch} do dia ${d}/${m} bloqueado.`
-        : `Não encontrei o horário ${timeMatch} em ${d}/${m}.`;
+        ? `🔴 ${timeMatch} de ${d}/${m} bloqueado.`
+        : `❌ Horário ${timeMatch} não encontrado em ${d}/${m}.`;
     }
     const period = extractPeriod(normalized);
     if (period) {
       const count = await blockPeriod(period.inicio, period.fim);
       return count > 0
-        ? `✅ Período bloqueado. ${count} horário(s) bloqueado(s).`
-        : `Não encontrei horários disponíveis nesse período.`;
+        ? `🔴 Período bloqueado — ${count} horário(s).`
+        : `❌ Nenhum horário disponível nesse período.`;
     }
     if (dateMatch) {
       const count = await blockDay(dateMatch);
       const [y, m, d] = dateMatch.split("-");
       return count > 0
-        ? `✅ Dia ${d}/${m} bloqueado. ${count} horário(s) bloqueado(s).`
-        : `Não encontrei horários disponíveis em ${d}/${m}.`;
+        ? `🔴 ${d}/${m} bloqueado — ${count} horário(s).`
+        : `❌ Nenhum horário disponível em ${d}/${m}.`;
     }
   }
 
@@ -333,18 +333,18 @@ async function processBarberCommand(text) {
       const slotInfo = await getSlotInfo(dates.de, times.de);
       if (!slotInfo || slotInfo.status !== "agendado") {
         const [y, m, d] = dates.de.split("-");
-        return `Não encontrei agendamento em ${d}/${m} às ${times.de}.`;
+        return `❌ Nenhum agendamento em ${d}/${m} às ${times.de}.`;
       }
 
       const newSlotInfo = await getSlotInfo(dates.para, times.para);
       if (!newSlotInfo) {
         const [y, m, d] = dates.para.split("-");
-        return `O horário ${times.para} não existe na agenda de ${d}/${m}.`;
+        return `❌ Horário ${times.para} não existe na agenda de ${d}/${m}.`;
       }
 
       if (newSlotInfo.status === "agendado") {
         const [y, m, d] = dates.para.split("-");
-        return `⚠️ O horário ${times.para} de ${d}/${m} já está com *${newSlotInfo.nome}*.\nEscolha outro horário para ${slotInfo.nome}.`;
+        return `⚠️ ${times.para} de ${d}/${m} já está com *${newSlotInfo.nome}*.\nEscolha outro horário para ${slotInfo.nome}.`;
       }
 
       await cancelSlotAdmin(dates.de, times.de);
@@ -362,7 +362,7 @@ async function processBarberCommand(text) {
           slotInfo.nome,
           slotInfo.telefone,
         );
-        return `Não consegui agendar. Horário revertido.`;
+        return `❌ Não consegui reagendar. Horário mantido em ${dates.de.split("-").reverse().slice(0,2).join("/")}.`;
       }
 
       const [yd, md, dd] = dates.de.split("-");
@@ -371,7 +371,7 @@ async function processBarberCommand(text) {
         slotInfo.telefone,
         `Olá ${slotInfo.nome}! Seu horário foi alterado de ${dd}/${md} às ${times.de} para ${dp}/${mp} às ${times.para} pela barbearia.`,
       );
-      return `✅ ${slotInfo.nome} reagendado de ${dd}/${md} às ${times.de} para ${dp}/${mp} às ${times.para}. Cliente notificado.`;
+      return `✅ *${slotInfo.nome}* reagendado\n${dd}/${md} às ${times.de} → ${dp}/${mp} às ${times.para}\n📲 Cliente notificado.`;
     }
   }
 
@@ -392,9 +392,9 @@ async function processBarberCommand(text) {
           cancelled.clientPhone,
           `Olá ${cancelled.clientName}! Seu horário do dia ${d}/${m} às ${timeMatch} foi cancelado pela barbearia. Entre em contato para reagendar.`,
         );
-        return `✅ Horário ${d}/${m} às ${timeMatch} cancelado. Cliente notificado.`;
+        return `❎ *${cancelled.clientName}* — ${d}/${m} às ${timeMatch} cancelado\n📲 Cliente notificado.`;
       }
-      return `Não encontrei agendamento em ${d}/${m} às ${timeMatch}.`;
+      return `❌ Nenhum agendamento em ${d}/${m} às ${timeMatch}.`;
     }
   }
 
@@ -416,7 +416,7 @@ async function processBarberCommand(text) {
       const existing = await getSlotInfo(dateMatch, timeMatch);
       if (existing && existing.status === "agendado") {
         const [y, m, d] = dateMatch.split("-");
-        return `⚠️ Horário ${d}/${m} às ${timeMatch} já está com *${existing.nome}*.`;
+        return `⚠️ ${d}/${m} às ${timeMatch} já está com *${existing.nome}*.`;
       }
       const booked = await bookSlotAdmin(
         dateMatch,
@@ -426,8 +426,8 @@ async function processBarberCommand(text) {
       );
       const [y, m, d] = dateMatch.split("-");
       if (booked)
-        return `✅ Agendado: ${clientName} — ${d}/${m} às ${timeMatch}.`;
-      return `Não consegui agendar ${clientName} em ${d}/${m} às ${timeMatch}.`;
+        return `✅ Agendado *${clientName}* — ${d}/${m} às ${timeMatch}.`;
+      return `❌ Não consegui agendar ${clientName} em ${d}/${m} às ${timeMatch}.`;
     }
   }
 
@@ -461,7 +461,7 @@ async function processBarberCommand(text) {
       const schedule = await getDaySchedule(dateMatch);
       const [y, m, d] = dateMatch.split("-");
       if (schedule.length === 0)
-        return `Nenhum horário cadastrado para ${d}/${m}.`;
+        return `📅 *Agenda ${d}/${m}*\n\nNenhum horário cadastrado.`;
       const lines = schedule.map((s) => {
         if (s.status === "agendado") return `🟢 ${s.horario} — ${s.nome}`;
         if (s.status === "bloqueado") return `🔴 ${s.horario} — bloqueado`;
@@ -489,7 +489,7 @@ async function processBarberCommand(text) {
     hasCancel ||
     hasAgenda;
   if (pareceComando)
-    return `Não entendi. Digite *ajuda* para ver os comandos disponíveis.`;
+    return `❓ Não entendi. Digite *ajuda* para ver os comandos disponíveis.`;
 
   return null;
 }
@@ -560,15 +560,12 @@ async function processAccumulatedMessages(phone, name) {
       if (!booked) {
         await sendMessage(
           phone,
-          `Ops! O horário ${horario} não está mais disponível. Escolhe outro? 😅`,
-        );
-        await notifyBarber(
-          `⚠️ *Conflito de horário*\n👤 ${nomeLimpo}\n📞 ${phone}\nTentou marcar ${data} às ${horario} mas já estava ocupado.`,
+          `Esse horário já foi. Dá uma olhada nos livres? Se quiser um específico, manda *barbeiro*. 👍🏼`,
         );
       } else {
         await sendMessage(
           phone,
-          `Obrigado, ${nomeLimpo}! Agendamento confirmado para ${horario}. Até lá! ✂️`,
+          `Valeu, ${nomeLimpo}! Tá marcado pras ${horario}. Até lá! ✂️`,
         );
         await notifyBarber(
           `✅ *Novo agendamento*\n👤 ${nomeLimpo}\n📅 ${data}\n🕐 ${horario}`,
@@ -580,7 +577,7 @@ async function processAccumulatedMessages(phone, name) {
     // Não parece nome — pede de novo
     await sendMessage(
       phone,
-      `Não entendi. Por favor me diz seu nome completo.`,
+      `Não entendi não. Me fala seu nome aí.`,
     );
     return;
   }
@@ -604,7 +601,7 @@ async function processAccumulatedMessages(phone, name) {
     if (isHelp) {
       await sendMessage(
         phone,
-        `🛠️ *Como posso te ajudar?*\n\n📅 *Ver horários disponíveis:*\n"tem horário hoje?"\n"quais horários amanhã?"\n\n✂️ *Agendar:*\n"quero marcar às 14h amanhã"\n\n❌ *Cancelar:*\n"quero cancelar meu horário"\n\n🔄 *Reagendar:*\n"quero mudar meu horário de sexta pra sábado"\n\n📞 *Falar com o barbeiro:*\nDigite *"barbeiro"* a qualquer momento`,
+        `✂️ *Tô aqui pra te ajudar:*\n\n📅 *Ver horários:*\n"tem vaga hoje?"\n"quais horários amanhã?"\n\n📌 *Agendar:*\n"quero marcar às 14h amanhã"\n\n❌ *Cancelar:*\n"quero cancelar meu horário"\n\n🔄 *Reagendar:*\n"muda meu horário de sexta pra sábado"\n\n📞 *Falar com o barbeiro:*\nManda *barbeiro* que a gente chama ele`,
       );
       return;
     }
@@ -620,7 +617,7 @@ async function processAccumulatedMessages(phone, name) {
     if (wantsBarbeiro) {
       await sendMessage(
         phone,
-        `Avisando o barbeiro! Ele vai entrar em contato em breve. 📞`,
+        `Já avisei o barb! Ele te chama em breve. 📞`,
       );
       await notifyBarber(
         `📞 *Cliente quer falar diretamente*\n👤 ${name}\n📞 ${phone}`,
@@ -640,23 +637,20 @@ async function processAccumulatedMessages(phone, name) {
       if (count >= 2) {
         await sendMessage(
           phone,
-          "Você já tem 2 horários marcados nesse dia, que é o limite. Cancela um se quiser trocar.",
+          "Vc já tem 2 horários nesse dia — é o máximo. Cancela um se quiser trocar.",
         );
       } else if (!isValidName(name)) {
         waitingForNameToBook.set(phone, { data: result.data, horario: result.horario });
         await sendMessage(
           phone,
-          `Para agendar, preciso do seu nome completo. Como posso te chamar?`,
+          `Pera, qual é o seu nome pra eu marcar?`,
         );
       } else {
         const booked = await bookSlot(result.data, result.horario, name, phone);
         if (!booked) {
           await sendMessage(
             phone,
-            `Ops! O horário ${result.horario} não está mais disponível. Escolhe outro? 😅`,
-          );
-          await notifyBarber(
-            `⚠️ *Conflito de horário*\n👤 ${name}\n📞 ${phone}\nTentou marcar ${result.data} às ${result.horario} mas já estava ocupado.`,
+            `Esse horário já foi. Dá uma olhada nos livres? Se quiser um específico, manda *barbeiro*. 👍🏼`,
           );
         } else {
           await sendMessage(phone, result.resposta);
@@ -670,7 +664,7 @@ async function processAccumulatedMessages(phone, name) {
       if (cancelled === "bloqueado_tempo") {
         await sendMessage(
           phone,
-          "Não é possível cancelar com menos de 2h de antecedência. Entre em contato direto com a barbearia.",
+          "Não rola cancelar com menos de 2h de antecedência. Se precisar, manda *barbeiro* pra resolver.",
         );
         await notifyBarber(
           `⚠️ *Tentativa de cancelamento tardio*\n👤 ${name}\n📞 ${phone}\n📅 ${result.data} às ${result.horario}`,
@@ -678,7 +672,7 @@ async function processAccumulatedMessages(phone, name) {
       } else if (!cancelled) {
         await sendMessage(
           phone,
-          `Não encontrei esse agendamento. Confirma o horário? 🤔`,
+          `Não achei esse horário não. Confirma pra mim? 🤔`,
         );
       } else {
         await sendMessage(phone, result.resposta);
@@ -704,7 +698,7 @@ async function processAccumulatedMessages(phone, name) {
       if (rescheduled === "bloqueado_tempo") {
         await sendMessage(
           phone,
-          "Não é possível reagendar com menos de 2h de antecedência. Entre em contato direto com a barbearia.",
+          "Não rola reagendar com menos de 2h de antecedência. Se precisar, manda *barbeiro* pra resolver.",
         );
         await notifyBarber(
           `⚠️ *Tentativa de reagendamento tardio*\n👤 ${name}\n📞 ${phone}\n📅 ${result.data} às ${result.horario}`,
@@ -712,7 +706,7 @@ async function processAccumulatedMessages(phone, name) {
       } else if (!rescheduled) {
         await sendMessage(
           phone,
-          `Não consegui reagendar. Confirma os horários? 🤔`,
+          `Não consegui reagendar não. Confirma os horários pra mim? 🤔`,
         );
         await notifyBarber(
           `⚠️ *Conflito de reagendamento*\n👤 ${name}\n📞 ${phone}\nTentou reagendar para ${result.data_nova} às ${result.horario_novo} mas não conseguiu.`,
@@ -754,7 +748,7 @@ async function processAccumulatedMessages(phone, name) {
           parts.push(`📅 *Agenda ${d}/${m}*\n\n${lines.join("\n")}`);
         }
         if (parts.length === 0) {
-          await sendMessage(phone, result.resposta || "Não tem mais horários disponíveis para essa data.");
+          await sendMessage(phone, result.resposta || "Não tem mais vaga pra essa data não.");
         } else {
           const intro = result.resposta ? `${result.resposta}\n\n` : "";
           const msg = `${intro}${parts.join("\n\n")}`;
@@ -771,7 +765,7 @@ async function processAccumulatedMessages(phone, name) {
     console.error("Erro ao processar mensagem:", error.message);
     await sendMessage(
       phone,
-      "Desculpe, tive um problema. Tenta de novo em instantes!",
+      "Deu um erro aqui. Espera um pouquinho e tenta dnv!💪🏼",
     );
     await notifyBarber(
       `⚠️ *Atenção manual*\n👤 ${name}\n📞 ${phone}\nCliente pode precisar de ajuda.`,
@@ -804,7 +798,7 @@ app.post("/webhook", async (req, res) => {
       console.error("Erro ao transcrever áudio:", error.message);
       await sendMessage(
         phone,
-        "Desculpe, não consegui entender o áudio. Pode digitar sua mensagem? 😅",
+        "Não consegui entender o áudio. Digita pf? 😅",
       );
       await notifyBarber(
         `⚠️ Problema ao processar áudio de ${name} (${phone})`,
