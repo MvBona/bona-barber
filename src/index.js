@@ -510,12 +510,26 @@ async function processAccumulatedMessages(phone, name) {
     }
   }
 
-  // Valida nome antes de processar
+  // Valida nome, mas detecta resposta de nome se inválido
   const validName = getValidatedName(phone, name);
   if (!validName) {
+    const trimmed = combinedText.trim();
+    const words = trimmed
+      .split(/\s+/)
+      .filter((w) => /^[a-záàãâéêíóôõúçA-Z]+$/i.test(w));
+
+    if (words.length >= 1 && words.length <= 4 && trimmed.length >= 3) {
+      const nomeLimpo = words
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(" ");
+      setValidatedName(phone, nomeLimpo);
+      await sendMessage(phone, `Obrigado, ${nomeLimpo}! Como posso te ajudar?`);
+      return;
+    }
+
     await sendMessage(
       phone,
-      `Olá! Para te atender, preciso do seu nome completo. Como posso te chamar?`,
+      `Para te atender, preciso do seu nome. Como posso te chamar?`,
     );
     return;
   }
