@@ -2,6 +2,8 @@ const Anthropic = require("@anthropic-ai/sdk");
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const conversations = new Map();
 const lastGreetingPeriod = new Map();
+// Armazena nomes validados por telefone
+const validatedNames = new Map();
 
 function getPeriod() {
   const hora = new Date().toLocaleString("pt-BR", {
@@ -40,6 +42,47 @@ function addToHistory(phone, role, content) {
   }
 }
 
+// Verifica se o nome parece real
+function isValidName(name) {
+  if (!name || name.trim().length < 3) return false;
+  // Contém emoji
+  if (/\p{Emoji}/u.test(name)) return false;
+  // Contém números
+  if (/\d/.test(name)) return false;
+  // Palavras suspeitas de apelido de conta
+  const suspicious = [
+    "uber",
+    "taxi",
+    "delivery",
+    "ifood",
+    "moto",
+    "bot",
+    "test",
+    "zap",
+    "whats",
+  ];
+  const lower = name.toLowerCase();
+  if (suspicious.some((w) => lower.includes(w))) return false;
+  // Só maiúsculas e curto (sigla)
+  if (name === name.toUpperCase() && name.replace(/\s/g, "").length <= 4)
+    return false;
+  return true;
+}
+
+//Retorna nome validado ou null se precisar perguntar
+function getValidatedName(phone, whatsappName) {
+  if (validatedNames.has(phone)) return validatedNames.get(phone);
+  if (isValidName(whatsappName)) {
+    validatedNames.set(phone, whatsappName);
+    return whatsappName;
+  }
+  return null;
+}
+
+function setValidatedName(phone, name) {
+  validatedNames.set(phone, name);
+}
+
 async function interpretMessage(message, availableSlots, clientName, phone) {
   const slotsText = availableSlots
     .map((s) => `${s.data} às ${s.horario}`)
@@ -68,11 +111,12 @@ ${slotsText || "Nenhum horário disponível no momento."}
 
 Responda APENAS com um JSON válido neste formato, sem texto adicional:
 {
-  "acao": "agendar" | "cancelar" | "reagendar" | "listar" | "conversa",
+  "acao": "agendar" | "cancelar" | "reagendar" | "listar" | "conversa" | "informar_nome",
   "data": "2026-05-29" ou null,
   "horario": "14:00" ou null,
   "data_nova": "2026-05-29" ou null,
   "horario_novo": "14:00" ou null,
+  "nome_informado": null,
   "resposta": "mensagem para o cliente"
 }
 
@@ -82,17 +126,21 @@ Regras importantes:
 - Se o cliente disse "quero cancelar" e depois informou o horário, use acao "cancelar".
 - Se o cliente disse "quero agendar" e depois informou o horário, use acao "agendar".
 - Se o cliente pedir "ajuda", "help" ou "como funciona", use acao "conversa" e explique: "Posso te ajudar a *agendar*, *cancelar* ou *reagendar* um horário. É só me dizer o que precisa!"
+- Se o cliente estiver respondendo com seu nome (após ser pedido), use acao "informar_nome" e coloque o nome em "nome_informado".
 - NUNCA perca o contexto da intenção original.
 - Se tiver o horário atual mas faltar o novo horário, use acao "reagendar" com horario_novo null e peça o novo horário.
 - "agendar": cliente quer marcar. Se tiver data e horário claros, confirme diretamente SEM pedir confirmação extra.
 - "cancelar": cliente quer cancelar. Preencha data e horario se especificou.
 - "reagendar": cliente quer mudar horário. Preencha os campos atuais e novos.
-- "listar": cliente quer ver horários disponíveis.
-- "conversa": SOMENTE para saudações ou dúvidas que não envolvem agendamento.
+- "listar": cliente quer ver horários disponíveis. Se souber a data, preencha "data". Em "resposta" escreva apenas uma frase curta de introdução (ex: "Olha o que tem hoje 👇") sem listar horários — o sistema exibe a agenda automaticamente. Se não houver data específica (ex: "essa semana"), use "data": null e escreva os horários disponíveis em "resposta" no formato: 📅 DD/MM seguido de ⚪ HH:MM — livre por linha.
+- Se o cliente responder a um lembrete confirmando presença (ex: "pode confirmar", "estarei lá", "confirmado", "vou estar", "tô lá", "estarei"), use acao "conversa" e responda de forma amigável reconhecendo a confirmação (ex: "Ótimo, te esperamos! ✂️"). Não pergunte o que o cliente quer fazer.
+- "conversa": SOMENTE para saudações, confirmações de presença ou dúvidas que não envolvem agendamento.
 - Datas sempre no formato YYYY-MM-DD e horários HH:MM.
-- Tom: direto e informal. Máximo 2 linhas na resposta.
+- Tom: natural e descontraído, como um atendente humano de barbearia. Evite soar robótico, formal ou scripted.
+- Quando o cliente só cumprimentar sem pedir nada, responda de forma curta e natural (ex: "Oi! O que você precisa?"). Nunca liste as funcionalidades do bot na saudação.
+- Respostas curtas — máximo 2 linhas de texto (exceto quando incluir lista de horários).
 - Emojis: no máximo 1 por mensagem, só quando fizer sentido.
-- Evite frases como "Que ótimo!", "Com certeza!", "Perfeito!".
+- Evite "Que ótimo!", "Com certeza!", "Perfeito!", "Claro!".
 - Não repita o nome do cliente em toda mensagem.
 - Sobre saudações: ${greetInstruction}
 - Interpretação de datas:
@@ -127,6 +175,14 @@ function clearHistory(phone) {
 function clearAllHistories() {
   conversations.clear();
   lastGreetingPeriod.clear();
+  validatedNames.clear();
 }
 
-module.exports = { interpretMessage, clearHistory, clearAllHistories };
+module.exports = {
+  interpretMessage,
+  addToHistory,
+  clearHistory,
+  clearAllHistories,
+  getValidatedName,
+  setValidatedName,
+};

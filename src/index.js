@@ -31,11 +31,10 @@ const {
   countClientAppointmentsOnDay,
   getSlotInfo,
   getDaySchedule,
-  updateSlotName, // ✅ NOVO
 } = require("./sheets");
 
 console.log("carregando ai...");
-const { interpretMessage, clearAllHistories } = require("./ai");
+const { interpretMessage, addToHistory, clearAllHistories } = require("./ai");
 
 console.log("carregando transcribe...");
 const { transcribeAudio } = require("./transcribe");
@@ -62,8 +61,8 @@ const BARBERSHOP_PHONE = process.env.BARBERSHOP_PHONE;
 
 const debounceTimers = new Map();
 const pendingMessages = new Map();
-// Estado "aguardando nome" por cliente
-const waitingForName = new Map();
+// Agendamento pendente aguardando nome válido: phone → { data, horario }
+const waitingForNameToBook = new Map();
 
 // Verifica se nome parece real
 function isValidName(name) {
@@ -122,6 +121,7 @@ async function sendReminders(horasAntes) {
           ? `Lembrete: você tem horário amanhã às ${appt.horario} na ${process.env.BARBERSHOP_NAME || "barbearia"}.`
           : `Seu horário é em 2 horas, às ${appt.horario} na ${process.env.BARBERSHOP_NAME || "barbearia"}.`;
       await sendMessage(appt.telefone, msg);
+      addToHistory(appt.telefone, "assistant", msg);
       console.log(
         `Lembrete ${horasAntes}h enviado para ${appt.nome} (${appt.telefone})`,
       );
@@ -515,8 +515,8 @@ async function processAccumulatedMessages(phone, name) {
     }
   }
 
-  // Verifica se está aguardando nome
-  if (waitingForName.has(phone)) {
+  // Verifica se está aguardando nome para confirmar agendamento pendente
+  if (waitingForNameToBook.has(phone)) {
     const trimmed = combinedText.trim();
     const words = trimmed
       .split(/\s+/)
@@ -555,14 +555,26 @@ async function processAccumulatedMessages(phone, name) {
       const nomeLimpo = words
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
         .join(" ");
-      waitingForName.delete(phone);
-      // Atualiza nome na planilha
-      await updateSlotName(phone, nomeLimpo);
-      await sendMessage(
-        phone,
-        `Obrigado, ${nomeLimpo}! Agendamento confirmado.`,
-      );
-      await notifyBarber(`✅ *Nome atualizado*\n👤 ${nomeLimpo}\n📞 ${phone}`);
+      const { data, horario } = waitingForNameToBook.get(phone);
+      waitingForNameToBook.delete(phone);
+      const booked = await bookSlot(data, horario, nomeLimpo, phone);
+      if (!booked) {
+        await sendMessage(
+          phone,
+          `Ops! O horário ${horario} não está mais disponível. Escolhe outro? 😅`,
+        );
+        await notifyBarber(
+          `⚠️ *Conflito de horário*\n👤 ${nomeLimpo}\n📞 ${phone}\nTentou marcar ${data} às ${horario} mas já estava ocupado.`,
+        );
+      } else {
+        await sendMessage(
+          phone,
+          `Obrigado, ${nomeLimpo}! Agendamento confirmado para ${horario}. Até lá! ✂️`,
+        );
+        await notifyBarber(
+          `✅ *Novo agendamento*\n👤 ${nomeLimpo}\n📅 ${data}\n🕐 ${horario}`,
+        );
+      }
       return;
     }
 
@@ -587,6 +599,12 @@ async function processAccumulatedMessages(phone, name) {
           phone,
           "Você já tem 2 horários marcados nesse dia, que é o limite. Cancela um se quiser trocar.",
         );
+      } else if (!isValidName(name)) {
+        waitingForNameToBook.set(phone, { data: result.data, horario: result.horario });
+        await sendMessage(
+          phone,
+          `Para agendar, preciso do seu nome completo. Como posso te chamar?`,
+        );
       } else {
         const booked = await bookSlot(result.data, result.horario, name, phone);
         if (!booked) {
@@ -602,15 +620,6 @@ async function processAccumulatedMessages(phone, name) {
           await notifyBarber(
             `✅ *Novo agendamento*\n👤 ${name}\n📅 ${result.data}\n🕐 ${result.horario}`,
           );
-
-          // Pede nome se inválido, após confirmar agendamento
-          if (!isValidName(name)) {
-            waitingForName.set(phone, true);
-            await sendMessage(
-              phone,
-              `Para finalizar, preciso do seu nome completo. Como posso te chamar?`,
-            );
-          }
         }
       }
     } else if (result.acao === "cancelar" && result.data && result.horario) {
@@ -670,6 +679,20 @@ async function processAccumulatedMessages(phone, name) {
         await notifyBarber(
           `🔄 *Reagendamento*\n👤 ${name}\n📅 ${result.data} às ${result.horario}\n➡️ ${result.data_nova} às ${result.horario_novo}`,
         );
+      }
+    } else if (result.acao === "listar" && result.data) {
+      const daySchedule = await getDaySchedule(result.data);
+      const [, m, d] = result.data.split("-");
+      if (daySchedule.length === 0) {
+        await sendMessage(phone, `Não tem horários cadastrados para ${d}/${m}.`);
+      } else {
+        const lines = daySchedule.map((s) => {
+          if (s.status === "livre") return `⚪ ${s.horario} — livre`;
+          if (s.status === "bloqueado") return `🔴 ${s.horario} — bloqueado`;
+          return `🟢 ${s.horario} — ocupado`;
+        });
+        const intro = result.resposta ? `${result.resposta}\n\n` : "";
+        await sendMessage(phone, `${intro}📅 *Agenda ${d}/${m}*\n\n${lines.join("\n")}`);
       }
     } else {
       await sendMessage(phone, result.resposta);
@@ -742,7 +765,7 @@ schedule.schedule(
   () => {
     console.log("Limpando histórico de conversas...");
     clearAllHistories();
-    waitingForName.clear(); // limpa também ao resetar
+    waitingForNameToBook.clear();
     console.log("Histórico limpo!");
   },
   { timezone: "America/Sao_Paulo" },
