@@ -261,21 +261,21 @@ async function processBarberCommand(text) {
       const count = await unblockSlot(dateMatch, timeMatch);
       const [y, m, d] = dateMatch.split("-");
       return count > 0
-        ? `⚪ ${timeMatch} de ${d}/${m} liberado.`
+        ? `🟢 ${timeMatch} de ${d}/${m} liberado.`
         : `❌ Horário ${timeMatch} de ${d}/${m} não estava bloqueado.`;
     }
     const period = extractPeriod(normalized);
     if (period) {
       const count = await unblockPeriod(period.inicio, period.fim);
       return count > 0
-        ? `⚪ Período liberado — ${count} horário(s) desbloqueado(s).`
+        ? `🟢 Período liberado — ${count} horário(s) desbloqueado(s).`
         : `❌ Nenhum horário bloqueado encontrado nesse período.`;
     }
     if (dateMatch) {
       const count = await unblockDay(dateMatch);
       const [y, m, d] = dateMatch.split("-");
       return count > 0
-        ? `⚪ ${d}/${m} liberado — ${count} horário(s) desbloqueado(s).`
+        ? `🟢 ${d}/${m} liberado — ${count} horário(s) desbloqueado(s).`
         : `❌ Nenhum horário bloqueado em ${d}/${m}.`;
     }
     const onlyDay = normalized.match(/(?:dia\s+)?(\d{1,2})(?!\s*[\/h:])/);
@@ -283,7 +283,7 @@ async function processBarberCommand(text) {
       const day = onlyDay[1].padStart(2, "0");
       const count = await unblockDay(`${currentYear}-${currentMonth}-${day}`);
       return count > 0
-        ? `⚪ ${day}/${currentMonth} liberado — ${count} horário(s) desbloqueado(s).`
+        ? `🟢 ${day}/${currentMonth} liberado — ${count} horário(s) desbloqueado(s).`
         : `❌ Nenhum horário bloqueado em ${day}/${currentMonth}.`;
     }
   }
@@ -468,9 +468,9 @@ async function processBarberCommand(text) {
       if (schedule.length === 0)
         return `📅 *Agenda ${d}/${m}*\n\nNenhum horário cadastrado.`;
       const lines = schedule.map((s) => {
-        if (s.status === "agendado") return `🟢 ${s.horario} — ${s.nome}`;
+        if (s.status === "agendado") return `⚪ ${s.horario} — ${s.nome}`;
         if (s.status === "bloqueado") return `🔴 ${s.horario} — bloqueado`;
-        return `⚪ ${s.horario} — livre`;
+        return `🟢 ${s.horario} — livre`;
       });
       return `📅 *Agenda ${d}/${m}*\n\n${lines.join("\n")}`;
     }
@@ -764,9 +764,9 @@ async function processAccumulatedMessages(phone, name) {
             return new Date(year, month - 1, day, h, min) > now;
           })
           .map((s) => {
-            if (s.status === "livre") return `⚪ ${s.horario} — livre`;
+            if (s.status === "livre") return `🟢 ${s.horario} — livre`;
             if (s.status === "bloqueado") return `🔴 ${s.horario} — bloqueado`;
-            return `🟢 ${s.horario} — ocupado`;
+            return `⚪ ${s.horario} — ocupado`;
           });
         if (lines.length === 0) continue;
         parts.push(`📅 *Agenda ${d}/${m}*\n\n${lines.join("\n")}`);
