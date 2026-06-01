@@ -64,6 +64,11 @@ const pendingMessages = new Map();
 // Agendamento pendente aguardando nome válido: phone → { data, horario }
 const waitingForNameToBook = new Map();
 
+function fmtDate(iso) {
+  const [, m, d] = iso.split("-");
+  return `${d}/${m}`;
+}
+
 // Verifica se nome parece real
 function isValidName(name) {
   if (!name || name.trim().length < 3) return false;
@@ -568,7 +573,7 @@ async function processAccumulatedMessages(phone, name) {
           `Valeu, ${nomeLimpo}! Tá marcado pras ${horario}. Até lá! ✂️`,
         );
         await notifyBarber(
-          `✅ *Novo agendamento*\n👤 ${nomeLimpo}\n📅 ${data}\n🕐 ${horario}`,
+          `✅ *Novo agendamento*\n👤 ${nomeLimpo}\n📅 ${fmtDate(data)}\n🕐 ${horario}`,
         );
       }
       return;
@@ -655,7 +660,7 @@ async function processAccumulatedMessages(phone, name) {
         } else {
           await sendMessage(phone, result.resposta);
           await notifyBarber(
-            `✅ *Novo agendamento*\n👤 ${name}\n📅 ${result.data}\n🕐 ${result.horario}`,
+            `✅ *Novo agendamento*\n👤 ${name}\n📅 ${fmtDate(result.data)}\n🕐 ${result.horario}`,
           );
         }
       }
@@ -667,7 +672,7 @@ async function processAccumulatedMessages(phone, name) {
           "Não rola cancelar com menos de 2h de antecedência. Se precisar, manda *barbeiro* pra resolver.",
         );
         await notifyBarber(
-          `⚠️ *Tentativa de cancelamento tardio*\n👤 ${name}\n📞 ${phone}\n📅 ${result.data} às ${result.horario}`,
+          `⚠️ *Tentativa de cancelamento tardio*\n👤 ${name}\n📞 ${phone}\n📅 ${fmtDate(result.data)} às ${result.horario}`,
         );
       } else if (!cancelled) {
         await sendMessage(
@@ -677,7 +682,7 @@ async function processAccumulatedMessages(phone, name) {
       } else {
         await sendMessage(phone, result.resposta);
         await notifyBarber(
-          `❌ *Cancelamento*\n👤 ${name}\n📅 ${result.data}\n🕐 ${result.horario}`,
+          `❌ *Cancelamento*\n👤 ${name}\n📅 ${fmtDate(result.data)}\n🕐 ${result.horario}`,
         );
       }
     } else if (
@@ -701,7 +706,7 @@ async function processAccumulatedMessages(phone, name) {
           "Não rola reagendar com menos de 2h de antecedência. Se precisar, manda *barbeiro* pra resolver.",
         );
         await notifyBarber(
-          `⚠️ *Tentativa de reagendamento tardio*\n👤 ${name}\n📞 ${phone}\n📅 ${result.data} às ${result.horario}`,
+          `⚠️ *Tentativa de reagendamento tardio*\n👤 ${name}\n📞 ${phone}\n📅 ${fmtDate(result.data)} às ${result.horario}`,
         );
       } else if (!rescheduled) {
         await sendMessage(
@@ -709,54 +714,71 @@ async function processAccumulatedMessages(phone, name) {
           `Não consegui reagendar não. Confirma os horários pra mim? 🤔`,
         );
         await notifyBarber(
-          `⚠️ *Conflito de reagendamento*\n👤 ${name}\n📞 ${phone}\nTentou reagendar para ${result.data_nova} às ${result.horario_novo} mas não conseguiu.`,
+          `⚠️ *Conflito de reagendamento*\n👤 ${name}\n📞 ${phone}\nTentou reagendar para ${fmtDate(result.data_nova)} às ${result.horario_novo} mas não conseguiu.`,
         );
       } else {
         await sendMessage(phone, result.resposta);
         await notifyBarber(
-          `🔄 *Reagendamento*\n👤 ${name}\n📅 ${result.data} às ${result.horario}\n➡️ ${result.data_nova} às ${result.horario_novo}`,
+          `🔄 *Reagendamento*\n👤 ${name}\n📅 ${fmtDate(result.data)} às ${result.horario}\n➡️ ${fmtDate(result.data_nova)} às ${result.horario_novo}`,
         );
       }
     } else if (result.acao === "listar") {
-      const dates = Array.isArray(result.datas) && result.datas.length
+      const now = new Date(
+        new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
+      );
+
+      let targetDates = Array.isArray(result.datas) && result.datas.length
         ? result.datas
         : result.data
         ? [result.data]
         : null;
 
-      if (dates) {
-        const now = new Date(
-          new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
-        );
-        const parts = [];
-        for (const data of dates) {
-          const daySchedule = await getDaySchedule(data);
-          if (daySchedule.length === 0) continue;
-          const [year, month, day] = data.split("-").map(Number);
-          const [, m, d] = data.split("-");
-          const lines = daySchedule
-            .filter((s) => {
-              const [h, min] = s.horario.split(":").map(Number);
-              return new Date(year, month - 1, day, h, min) > now;
-            })
-            .map((s) => {
-              if (s.status === "livre") return `⚪ ${s.horario} — livre`;
-              if (s.status === "bloqueado") return `🔴 ${s.horario} — bloqueado`;
-              return `🟢 ${s.horario} — ocupado`;
-            });
-          if (lines.length === 0) continue;
-          parts.push(`📅 *Agenda ${d}/${m}*\n\n${lines.join("\n")}`);
+      // Sem data específica (ex: "essa semana"): calcula dias até o próximo domingo
+      if (!targetDates) {
+        const daysUntilSunday = (7 - now.getDay()) % 7 || 7;
+        const nextSunday = new Date(now);
+        nextSunday.setDate(now.getDate() + daysUntilSunday);
+        targetDates = [];
+        const cursor = new Date(now);
+        cursor.setDate(now.getDate() + 1);
+        while (cursor <= nextSunday) {
+          if (cursor.getDay() !== 0) {
+            const yyyy = cursor.getFullYear();
+            const mm = String(cursor.getMonth() + 1).padStart(2, "0");
+            const dd = String(cursor.getDate()).padStart(2, "0");
+            targetDates.push(`${yyyy}-${mm}-${dd}`);
+          }
+          cursor.setDate(cursor.getDate() + 1);
         }
-        if (parts.length === 0) {
-          await sendMessage(phone, result.resposta || "Não tem mais vaga pra essa data não.");
-        } else {
-          const intro = result.resposta ? `${result.resposta}\n\n` : "";
-          const msg = `${intro}${parts.join("\n\n")}`;
-          await sendMessage(phone, msg);
-          addToHistory(phone, "assistant", `[Agenda exibida para: ${dates.join(", ")}]\n${msg}`);
-        }
+      }
+
+      const parts = [];
+      for (const data of targetDates) {
+        const daySchedule = await getDaySchedule(data);
+        if (daySchedule.length === 0) continue;
+        const [year, month, day] = data.split("-").map(Number);
+        const [, m, d] = data.split("-");
+        const lines = daySchedule
+          .filter((s) => {
+            const [h, min] = s.horario.split(":").map(Number);
+            return new Date(year, month - 1, day, h, min) > now;
+          })
+          .map((s) => {
+            if (s.status === "livre") return `⚪ ${s.horario} — livre`;
+            if (s.status === "bloqueado") return `🔴 ${s.horario} — bloqueado`;
+            return `🟢 ${s.horario} — ocupado`;
+          });
+        if (lines.length === 0) continue;
+        parts.push(`📅 *Agenda ${d}/${m}*\n\n${lines.join("\n")}`);
+      }
+
+      if (parts.length === 0) {
+        await sendMessage(phone, result.resposta || "Não tem mais vaga pra essa data não.");
       } else {
-        await sendMessage(phone, result.resposta);
+        const intro = result.resposta ? `${result.resposta}\n\n` : "";
+        const msg = `${intro}${parts.join("\n\n")}`;
+        await sendMessage(phone, msg);
+        addToHistory(phone, "assistant", `[Agenda exibida para: ${targetDates.join(", ")}]\n${msg}`);
       }
     } else {
       await sendMessage(phone, result.resposta);
