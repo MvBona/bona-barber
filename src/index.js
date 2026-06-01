@@ -680,19 +680,34 @@ async function processAccumulatedMessages(phone, name) {
           `🔄 *Reagendamento*\n👤 ${name}\n📅 ${result.data} às ${result.horario}\n➡️ ${result.data_nova} às ${result.horario_novo}`,
         );
       }
-    } else if (result.acao === "listar" && result.data) {
-      const daySchedule = await getDaySchedule(result.data);
-      const [, m, d] = result.data.split("-");
-      if (daySchedule.length === 0) {
-        await sendMessage(phone, `Não tem horários cadastrados para ${d}/${m}.`);
+    } else if (result.acao === "listar") {
+      const dates = Array.isArray(result.datas) && result.datas.length
+        ? result.datas
+        : result.data
+        ? [result.data]
+        : null;
+
+      if (dates) {
+        const parts = [];
+        for (const data of dates) {
+          const daySchedule = await getDaySchedule(data);
+          if (daySchedule.length === 0) continue;
+          const [, m, d] = data.split("-");
+          const lines = daySchedule.map((s) => {
+            if (s.status === "livre") return `⚪ ${s.horario} — livre`;
+            if (s.status === "bloqueado") return `🔴 ${s.horario} — bloqueado`;
+            return `🟢 ${s.horario} — ocupado`;
+          });
+          parts.push(`📅 *Agenda ${d}/${m}*\n\n${lines.join("\n")}`);
+        }
+        if (parts.length === 0) {
+          await sendMessage(phone, result.resposta || "Não tem horários cadastrados para essa data.");
+        } else {
+          const intro = result.resposta ? `${result.resposta}\n\n` : "";
+          await sendMessage(phone, `${intro}${parts.join("\n\n")}`);
+        }
       } else {
-        const lines = daySchedule.map((s) => {
-          if (s.status === "livre") return `⚪ ${s.horario} — livre`;
-          if (s.status === "bloqueado") return `🔴 ${s.horario} — bloqueado`;
-          return `🟢 ${s.horario} — ocupado`;
-        });
-        const intro = result.resposta ? `${result.resposta}\n\n` : "";
-        await sendMessage(phone, `${intro}📅 *Agenda ${d}/${m}*\n\n${lines.join("\n")}`);
+        await sendMessage(phone, result.resposta);
       }
     } else {
       await sendMessage(phone, result.resposta);

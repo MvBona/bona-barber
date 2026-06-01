@@ -88,8 +88,10 @@ async function interpretMessage(message, availableSlots, clientName, phone) {
     .map((s) => `${s.data} às ${s.horario}`)
     .join("\n");
 
+  const currentPeriod = getPeriod();
+  const greetPhrase = { manha: "bom dia", tarde: "boa tarde", noite: "boa noite" }[currentPeriod];
   const greetInstruction = shouldGreet(phone)
-    ? `- Cumprimente brevemente com bom dia/tarde/noite.`
+    ? `- Cumprimente brevemente com "${greetPhrase}". Não use outra saudação de período.`
     : `- NÃO cumprimente — já houve interação neste período. Vá direto ao ponto.`;
 
   const hoje = new Date().toLocaleDateString("pt-BR", {
@@ -113,6 +115,7 @@ Responda APENAS com um JSON válido neste formato, sem texto adicional:
 {
   "acao": "agendar" | "cancelar" | "reagendar" | "listar" | "conversa" | "informar_nome",
   "data": "2026-05-29" ou null,
+  "datas": ["2026-05-29", "2026-05-30"] ou null,
   "horario": "14:00" ou null,
   "data_nova": "2026-05-29" ou null,
   "horario_novo": "14:00" ou null,
@@ -132,7 +135,7 @@ Regras importantes:
 - "agendar": cliente quer marcar. Se tiver data e horário claros, confirme diretamente SEM pedir confirmação extra.
 - "cancelar": cliente quer cancelar. Preencha data e horario se especificou.
 - "reagendar": cliente quer mudar horário. Preencha os campos atuais e novos.
-- "listar": cliente quer ver horários disponíveis. Se souber a data, preencha "data". Em "resposta" escreva apenas uma frase curta de introdução (ex: "Olha o que tem hoje 👇") sem listar horários — o sistema exibe a agenda automaticamente. Se não houver data específica (ex: "essa semana"), use "data": null e escreva os horários disponíveis em "resposta" no formato: 📅 DD/MM seguido de ⚪ HH:MM — livre por linha.
+- "listar": cliente quer ver horários disponíveis. Se pedir uma data, preencha "data". Se pedir múltiplas datas, preencha "datas" com o array e deixe "data" null. Em "resposta" escreva apenas uma frase curta de introdução sem listar horários — o sistema exibe a agenda automaticamente. Se não houver nenhuma data específica (ex: "essa semana"), use "data": null, "datas": null e escreva os disponíveis em "resposta" no formato: 📅 DD/MM seguido de ⚪ HH:MM — livre por linha.
 - Se o cliente responder a um lembrete confirmando presença (ex: "pode confirmar", "estarei lá", "confirmado", "vou estar", "tô lá", "estarei"), use acao "conversa" e responda de forma amigável reconhecendo a confirmação (ex: "Ótimo, te esperamos! ✂️"). Não pergunte o que o cliente quer fazer.
 - "conversa": SOMENTE para saudações, confirmações de presença ou dúvidas que não envolvem agendamento.
 - Datas sempre no formato YYYY-MM-DD e horários HH:MM.

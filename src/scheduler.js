@@ -37,17 +37,10 @@ function getNextTwoMonthsDates() {
 
 function generateSlots(date) {
   const slots = [];
-  const open = 10;
-  const close = 21;
-  const lunchStart = 12;
-  const lunchEnd = 13;
-
-  for (let hour = open; hour < close; hour++) {
-    if (hour >= lunchStart && hour < lunchEnd) continue;
+  for (let hour = 10; hour < 20; hour++) {
     const horario = `${String(hour).padStart(2, "0")}:00`;
     slots.push([date, horario, "", "", "livre"]);
   }
-
   return slots;
 }
 
