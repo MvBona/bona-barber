@@ -20,15 +20,6 @@ function getSheetName(data) {
   return `${year}-${month}`;
 }
 
-function getCurrentSheetName() {
-  const now = new Date(
-    new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
-  );
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  return `${year}-${month}`;
-}
-
 function getRelevantSheetNames() {
   const now = new Date(
     new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
@@ -51,6 +42,18 @@ function isSlotInFuture(data, horario) {
   const [hour, minute] = horario.split(":").map(Number);
   const slotDate = new Date(year, month - 1, day, hour, minute);
   return slotDate > now;
+}
+
+// Verifica se o horário está a menos de 2h
+function isWithinTwoHours(data, horario) {
+  const now = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
+  );
+  const [year, month, day] = data.split("-").map(Number);
+  const [hour, minute] = horario.split(":").map(Number);
+  const slotDate = new Date(year, month - 1, day, hour, minute);
+  const diffHoras = (slotDate - now) / (1000 * 60 * 60);
+  return diffHoras <= 2 && diffHoras > 0;
 }
 
 async function getAvailableSlots() {
@@ -170,7 +173,10 @@ async function bookSlotAdmin(data, horario, nome, telefone) {
   return true;
 }
 
+// Retorna "bloqueado_tempo" se estiver a menos de 2h
 async function cancelSlot(data, horario, telefone) {
+  if (isWithinTwoHours(data, horario)) return "bloqueado_tempo";
+
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
   const sheetName = getSheetName(data);
@@ -243,8 +249,11 @@ async function rescheduleSlot(
   nome,
   telefone,
 ) {
+  // Também bloqueia reagendamento dentro de 2h
+  if (isWithinTwoHours(dataAtual, horarioAtual)) return "bloqueado_tempo";
+
   const cancelado = await cancelSlot(dataAtual, horarioAtual, telefone);
-  if (!cancelado) return false;
+  if (!cancelado || cancelado === "bloqueado_tempo") return cancelado;
 
   const agendado = await bookSlot(dataNova, horarioNovo, nome, telefone);
   if (!agendado) {
@@ -362,7 +371,6 @@ async function getSlotInfo(data, horario) {
   }
 }
 
-// Retorna agenda completa de um dia para o barbeiro
 async function getDaySchedule(data) {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
