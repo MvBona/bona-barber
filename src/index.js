@@ -775,7 +775,8 @@ async function processAccumulatedMessages(phone, name) {
       if (parts.length === 0) {
         await sendMessage(phone, result.resposta || "Não tem mais vaga pra essa data não.");
       } else {
-        const intro = result.resposta ? `${result.resposta}\n\n` : "";
+        const isWeekMode = !result.data && !(Array.isArray(result.datas) && result.datas.length);
+        const intro = !isWeekMode && result.resposta ? `${result.resposta}\n\n` : "";
         const msg = `${intro}${parts.join("\n\n")}`;
         await sendMessage(phone, msg);
         addToHistory(phone, "assistant", `[Agenda exibida para: ${targetDates.join(", ")}]\n${msg}`);
