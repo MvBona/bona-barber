@@ -60,19 +60,24 @@ async function ensureSheetExists(sheets, sheetName) {
         requests: [{ addSheet: { properties: { title: sheetName } } }],
       },
     });
+    console.log(`Aba ${sheetName} criada!`);
+  }
 
+  // Garante o cabeçalho sempre, mesmo que a aba já existisse sem ele
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A1:G1`,
+  });
+  const header = (res.data.values || [])[0];
+  if (!header || header[0] !== "data") {
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheetName}!A1:F1`,
+      range: `${sheetName}!A1:G1`,
       valueInputOption: "RAW",
       requestBody: {
-        values: [
-          ["data", "horario", "nome", "telefone", "status", "criado_em", "lembretes"],
-        ],
+        values: [["data", "horario", "nome", "telefone", "status", "criado_em", "lembretes"]],
       },
     });
-
-    console.log(`Aba ${sheetName} criada!`);
   }
 }
 
