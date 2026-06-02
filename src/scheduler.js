@@ -67,7 +67,7 @@ async function ensureSheetExists(sheets, sheetName) {
       valueInputOption: "RAW",
       requestBody: {
         values: [
-          ["data", "horario", "nome", "telefone", "status", "criado_em"],
+          ["data", "horario", "nome", "telefone", "status", "criado_em", "lembretes"],
         ],
       },
     });

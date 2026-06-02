@@ -29,6 +29,7 @@ const {
   cancelSlotAdmin,
   rescheduleSlot,
   getAppointmentsForReminder,
+  markReminderSent,
   countClientAppointmentsOnDay,
   getSlotInfo,
   getDaySchedule,
@@ -130,6 +131,7 @@ async function sendReminders(horasAntes) {
         ? tr(appt.telefone, "reminder24h", appt.horario, nome)
         : tr(appt.telefone, "reminder2h", appt.horario, nome);
       await sendMessage(appt.telefone, msg);
+      await markReminderSent(appt.sheetName, appt.rowIndex, appt.lembretes, `${horasAntes}h`);
       addToHistory(appt.telefone, "assistant", msg);
       console.log(
         `Lembrete ${horasAntes}h enviado para ${appt.nome} (${appt.telefone})`,
