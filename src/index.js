@@ -587,7 +587,7 @@ async function processAccumulatedMessages(phone, name) {
       } else {
         await sendMessage(
           phone,
-          `Valeu, ${nomeLimpo}! Tá marcado pras ${horario}. Até lá! ✂️`,
+          tr(phone, "bookingConfirm", nomeLimpo, horario),
         );
         await notifyBarber(
           `✅ *Novo agendamento*\n👤 ${nomeLimpo}\n📅 ${fmtDate(data)}\n🕐 ${horario}`,
