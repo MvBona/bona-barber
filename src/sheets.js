@@ -254,8 +254,8 @@ async function rescheduleSlot(
 
   const agendado = await bookSlot(dataNova, horarioNovo, nome, telefone);
   if (!agendado) {
-    await bookSlot(dataAtual, horarioAtual, nome, telefone);
-    return false;
+    const restored = await bookSlot(dataAtual, horarioAtual, nome, telefone);
+    return restored ? false : "rollback_failed";
   }
 
   return true;

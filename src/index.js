@@ -708,13 +708,18 @@ async function processAccumulatedMessages(phone, name) {
         await notifyBarber(
           `⚠️ *Tentativa de reagendamento tardio*\n👤 ${name}\n📞 ${phone}\n📅 ${fmtDate(result.data)} às ${result.horario}`,
         );
+      } else if (rescheduled === "rollback_failed") {
+        await sendMessage(
+          phone,
+          `Deu um problema aqui — manda *barbeiro* pra resolver, tá? 🙏`,
+        );
+        await notifyBarber(
+          `⚠️ *Erro no reagendamento*\n👤 ${name}\n📞 ${phone}\nHorário original ${fmtDate(result.data)} às ${result.horario} foi liberado mas o novo ${fmtDate(result.data_nova)} às ${result.horario_novo} não foi reservado. Verificar manualmente.`,
+        );
       } else if (!rescheduled) {
         await sendMessage(
           phone,
-          `Não consegui reagendar não. Confirma os horários pra mim? 🤔`,
-        );
-        await notifyBarber(
-          `⚠️ *Conflito de reagendamento*\n👤 ${name}\n📞 ${phone}\nTentou reagendar para ${fmtDate(result.data_nova)} às ${result.horario_novo} mas não conseguiu.`,
+          `Esse horário já tá ocupado. Escolhe outro livre! 👍🏼`,
         );
       } else {
         await sendMessage(phone, result.resposta);
