@@ -103,11 +103,19 @@ async function interpretMessage(message, availableSlots, clientName, phone) {
     day: "2-digit",
   });
 
-  const systemPrompt = `Você é o assistente virtual de uma barbearia chamada "${process.env.BARBERSHOP_NAME || "Barbearia"}". 
+  const systemPrompt = `Você é o assistente virtual de uma barbearia chamada "${process.env.BARBERSHOP_NAME || "Barbearia"}".
 Ajude clientes a agendar, cancelar e reagendar horários.
 
 O cliente se chama ${clientName}.
 Hoje é ${hoje}.
+
+Serviços e preços:
+- Corte de cabelo: R$50
+- Barba: R$30
+- Sobrancelha: R$10
+- Lavagem + penteado: R$20
+- Químicas (tintura, descoloração, etc.): não realizamos no momento
+- Pagamento: aceita reais e guaranis (câmbio feito na hora pela cotação do dia)
 
 Horários disponíveis:
 ${slotsText || "Nenhum horário disponível no momento."}
