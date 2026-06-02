@@ -154,9 +154,8 @@ Regras importantes:
   * Se mencionar só o dia da semana sem número, calcule a próxima ocorrência.
   * "amanhã" = dia seguinte ao hoje.
   * "hoje" = data de hoje.
-  * Se só mencionar o número do dia sem mês, assuma o mês atual ou o próximo se já passou.`;
-
-- Detecte o idioma do cliente e preencha "idioma": "pt" para português, "es" para espanhol, "en" para inglês.
+  * Se só mencionar o número do dia sem mês, assuma o mês atual ou o próximo se já passou.
+- Detecte o idioma do cliente e preencha "idioma": "pt" para português, "es" para espanhol, "en" para inglês.`;
 
   addToHistory(phone, "user", message);
 
