@@ -18,6 +18,7 @@ require("dotenv").config();
 console.log("carregando express...");
 const express = require("express");
 const schedule = require("node-cron");
+const { tr, clientLanguages } = require("./i18n");
 
 console.log("carregando sheets...");
 const {
@@ -123,10 +124,10 @@ async function sendReminders(horasAntes) {
       `Lembretes ${horasAntes}h: ${appointments.length} agendamento(s) encontrado(s)`,
     );
     for (const appt of appointments) {
-      const msg =
-        horasAntes === 24
-          ? `Lembrete: você tem horário amanhã às ${appt.horario} na ${process.env.BARBERSHOP_NAME || "barbearia"}.`
-          : `Seu horário é em 2 horas, às ${appt.horario} na ${process.env.BARBERSHOP_NAME || "barbearia"}.`;
+      const nome = process.env.BARBERSHOP_NAME || "barbearia";
+      const msg = horasAntes === 24
+        ? tr(appt.telefone, "reminder24h", appt.horario, nome)
+        : tr(appt.telefone, "reminder2h", appt.horario, nome);
       await sendMessage(appt.telefone, msg);
       addToHistory(appt.telefone, "assistant", msg);
       console.log(
@@ -567,7 +568,7 @@ async function processAccumulatedMessages(phone, name) {
       if (!booked) {
         await sendMessage(
           phone,
-          `Esse horário já foi. Dá uma olhada nos livres? Se quiser um específico, manda *barbeiro*. 👍🏼`,
+          tr(phone, "slotTaken"),
         );
       } else {
         await sendMessage(
@@ -582,10 +583,7 @@ async function processAccumulatedMessages(phone, name) {
     }
 
     // Não parece nome — pede de novo
-    await sendMessage(
-      phone,
-      `Não entendi não. Me fala seu nome aí.`,
-    );
+    await sendMessage(phone, tr(phone, "invalidName"));
     return;
   }
 
@@ -596,12 +594,12 @@ async function processAccumulatedMessages(phone, name) {
     waitingForCancelReason.delete(phone);
     const cancelled = await cancelSlot(data, horario, phone);
     if (cancelled === "bloqueado_tempo") {
-      await sendMessage(phone, "Não rola cancelar com menos de 2h de antecedência. Se precisar, manda *barbeiro* pra resolver.");
+      await sendMessage(phone, tr(phone, "cancelTooLate"));
       await notifyBarber(`⚠️ *Tentativa de cancelamento tardio*\n👤 ${name}\n📞 ${phone}\n📅 ${fmtDate(data)} às ${horario}\n📝 Motivo: ${motivo}`);
     } else if (!cancelled) {
-      await sendMessage(phone, `Não achei esse horário não. Confirma pra mim? 🤔`);
+      await sendMessage(phone, tr(phone, "slotNotFound"));
     } else {
-      await sendMessage(phone, `Cancelado! Qualquer coisa é só chamar. 👍🏼`);
+      await sendMessage(phone, tr(phone, "cancelSuccess"));
       await notifyBarber(`❎ *Cancelamento*\n👤 ${name}\n📅 ${fmtDate(data)}\n🕐 ${horario}\n📝 Motivo: ${motivo}`);
     }
     return;
@@ -626,7 +624,7 @@ async function processAccumulatedMessages(phone, name) {
     if (isHelp) {
       await sendMessage(
         phone,
-        `✂️ *Tô aqui pra te ajudar:*\n\n📅 *Ver horários:*\n"tem vaga hoje?"\n"quais horários amanhã?"\n\n📌 *Agendar:*\n"quero marcar às 14h amanhã"\n\n❌ *Cancelar:*\n"quero cancelar meu horário"\n\n🔄 *Reagendar:*\n"muda meu horário de sexta pra sábado"\n\n📞 *Falar com o barbeiro:*\nManda *barbeiro* que a gente chama ele`,
+        tr(phone, "help"),
       );
       return;
     }
@@ -640,10 +638,7 @@ async function processAccumulatedMessages(phone, name) {
       norm.includes("atendimento humano");
 
     if (wantsBarbeiro) {
-      await sendMessage(
-        phone,
-        `Já avisei o barb! Ele te chama em breve. 📞`,
-      );
+      await sendMessage(phone, tr(phone, "barberNotified"));
       await notifyBarber(
         `📞 *Cliente quer falar diretamente*\n👤 ${name}\n📞 ${phone}`,
       );
@@ -660,22 +655,16 @@ async function processAccumulatedMessages(phone, name) {
     if (result.acao === "agendar" && result.data && result.horario) {
       const count = await countClientAppointmentsOnDay(phone, result.data);
       if (count >= 2) {
-        await sendMessage(
-          phone,
-          "Vc já tem 2 horários nesse dia — é o máximo. Cancela um se quiser trocar.",
-        );
+        await sendMessage(phone, tr(phone, "maxBookings"));
       } else if (!isValidName(name)) {
         waitingForNameToBook.set(phone, { data: result.data, horario: result.horario });
-        await sendMessage(
-          phone,
-          `Pera, qual é o seu nome pra eu marcar?`,
-        );
+        await sendMessage(phone, tr(phone, "waitingName"));
       } else {
         const booked = await bookSlot(result.data, result.horario, name, phone);
         if (!booked) {
           await sendMessage(
             phone,
-            `Esse horário já foi. Dá uma olhada nos livres? Se quiser um específico, manda *barbeiro*. 👍🏼`,
+            tr(phone, "slotTaken"),
           );
         } else {
           await sendMessage(phone, result.resposta);
@@ -688,11 +677,11 @@ async function processAccumulatedMessages(phone, name) {
       const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
       if (result.data === hoje) {
         waitingForCancelReason.set(phone, { data: result.data, horario: result.horario });
-        await sendMessage(phone, `Entendido. Me conta o motivo do cancelamento pra eu passar pro barbeiro:`);
+        await sendMessage(phone, tr(phone, "cancelReasonPrompt"));
       } else {
         const cancelled = await cancelSlot(result.data, result.horario, phone);
         if (!cancelled) {
-          await sendMessage(phone, `Não achei esse horário não. Confirma pra mim? 🤔`);
+          await sendMessage(phone, tr(phone, "slotNotFound"));
         } else {
           await sendMessage(phone, result.resposta);
           await notifyBarber(`❎ *Cancelamento*\n👤 ${name}\n📅 ${fmtDate(result.data)}\n🕐 ${result.horario}`);
@@ -721,7 +710,7 @@ async function processAccumulatedMessages(phone, name) {
       if (rescheduled === "bloqueado_tempo") {
         await sendMessage(
           phone,
-          "Não rola reagendar com menos de 2h de antecedência. Se precisar, manda *barbeiro* pra resolver.",
+          tr(phone, "rescheduleTooLate"),
         );
         await notifyBarber(
           `⚠️ *Tentativa de reagendamento tardio*\n👤 ${name}\n📞 ${phone}\n📅 ${fmtDate(result.data)} às ${result.horario}`,
@@ -729,7 +718,7 @@ async function processAccumulatedMessages(phone, name) {
       } else if (rescheduled === "rollback_failed") {
         await sendMessage(
           phone,
-          `Deu um problema aqui — manda *barbeiro* pra resolver, tá? 🙏`,
+          tr(phone, "rollbackFailed"),
         );
         await notifyBarber(
           `⚠️ *Erro no reagendamento*\n👤 ${name}\n📞 ${phone}\nHorário original ${fmtDate(result.data)} às ${result.horario} foi liberado mas o novo ${fmtDate(result.data_nova)} às ${result.horario_novo} não foi reservado. Verificar manualmente.`,
@@ -737,7 +726,7 @@ async function processAccumulatedMessages(phone, name) {
       } else if (!rescheduled) {
         await sendMessage(
           phone,
-          `Esse horário já tá ocupado. Escolhe outro livre! 👍🏼`,
+          tr(phone, "rescheduleConflict"),
         );
       } else {
         await sendMessage(phone, result.resposta);
@@ -787,16 +776,16 @@ async function processAccumulatedMessages(phone, name) {
             return new Date(year, month - 1, day, h, min) > now;
           })
           .map((s) => {
-            if (s.status === "livre") return `🟢 ${s.horario} — livre`;
-            if (s.status === "bloqueado") return `⚪ ${s.horario} — bloqueado`;
-            return `🔴 ${s.horario} — ocupado`;
+            if (s.status === "livre") return `🟢 ${s.horario} — ${tr(phone, "livre")}`;
+            if (s.status === "bloqueado") return `⚪ ${s.horario} — ${tr(phone, "bloqueado")}`;
+            return `🔴 ${s.horario} — ${tr(phone, "ocupado")}`;
           });
         if (lines.length === 0) continue;
-        parts.push(`📅 *Agenda ${d}/${m}*\n\n${lines.join("\n")}`);
+        parts.push(`${tr(phone, "agendaHeader", d, m)}\n\n${lines.join("\n")}`);
       }
 
       if (parts.length === 0) {
-        await sendMessage(phone, result.resposta || "Não tem mais vaga pra essa data não.");
+        await sendMessage(phone, result.resposta || tr(phone, "noSlots"));
       } else {
         const isWeekMode = !result.data && !(Array.isArray(result.datas) && result.datas.length);
         const intro = !isWeekMode && result.resposta ? `${result.resposta}\n\n` : "";
@@ -811,7 +800,7 @@ async function processAccumulatedMessages(phone, name) {
     console.error("Erro ao processar mensagem:", error.message);
     await sendMessage(
       phone,
-      "Deu um erro aqui. Espera um pouquinho e tenta dnv!💪🏼",
+      tr(phone, "generalError"),
     );
     await notifyBarber(
       `⚠️ *Atenção manual*\n👤 ${name}\n📞 ${phone}\nCliente pode precisar de ajuda.`,

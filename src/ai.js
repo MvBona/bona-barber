@@ -1,5 +1,6 @@
 const Anthropic = require("@anthropic-ai/sdk");
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const { clientLanguages } = require("./i18n");
 const conversations = new Map();
 const lastGreetingPeriod = new Map();
 // Armazena nomes validados por telefone
@@ -120,6 +121,7 @@ Responda APENAS com um JSON válido neste formato, sem texto adicional:
   "data_nova": "2026-05-29" ou null,
   "horario_novo": "14:00" ou null,
   "nome_informado": null,
+  "idioma": "pt" | "es" | "en",
   "resposta": "mensagem para o cliente"
 }
 
@@ -154,6 +156,8 @@ Regras importantes:
   * "hoje" = data de hoje.
   * Se só mencionar o número do dia sem mês, assuma o mês atual ou o próximo se já passou.`;
 
+- Detecte o idioma do cliente e preencha "idioma": "pt" para português, "es" para espanhol, "en" para inglês.
+
   addToHistory(phone, "user", message);
 
   const response = await client.messages.create({
@@ -166,6 +170,8 @@ Regras importantes:
   const text = response.content[0].text;
   const clean = text.replace(/```json|```/g, "").trim();
   const result = JSON.parse(clean);
+
+  if (result.idioma) clientLanguages.set(phone, result.idioma);
 
   addToHistory(phone, "assistant", text);
 
