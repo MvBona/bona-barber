@@ -284,7 +284,7 @@ async function unblockPeriod(dataInicio, dataFim) {
   return total;
 }
 
-async function resetAllSlots() {
+async function resetSlots(scope = "mes") {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
 
@@ -292,14 +292,15 @@ async function resetAllSlots() {
     new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
   );
 
-  const sheetNames = [];
-  for (let i = 0; i <= 2; i++) {
-    const d = new Date(now);
-    d.setMonth(d.getMonth() + i);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    sheetNames.push(`${year}-${month}`);
-  }
+  const currentSheetName = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  const sheetNames = scope === "tudo"
+    ? Array.from({ length: 3 }, (_, i) => {
+        const d = new Date(now);
+        d.setMonth(d.getMonth() + i);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      })
+    : [currentSheetName];
 
   const apagados = [];
 
@@ -319,7 +320,7 @@ async function resetAllSlots() {
     } catch (e) {}
   }
 
-  // 2. Apaga todos os dados (mantém cabeçalho) e recria as abas
+  // 2. Limpa dados e recria abas
   for (const sheetName of sheetNames) {
     try {
       await ensureSheetExists(sheets, sheetName);
@@ -330,19 +331,18 @@ async function resetAllSlots() {
     } catch (e) {}
   }
 
-  // 3. Gera slots do dia atual (generateWeeklySlots começa de amanhã)
+  // 3. Recria slots do dia atual
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const todaySheetName = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   try {
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${todaySheetName}!A2`,
+      range: `${currentSheetName}!A2`,
       valueInputOption: "RAW",
       requestBody: { values: generateSlots(todayStr) },
     });
   } catch (e) {}
 
-  // 4. Gera slots de amanhã em diante (próximos 2 meses)
+  // 4. Recria slots de amanhã em diante
   await generateWeeklySlots();
 
   return { total: apagados.length, apagados };
@@ -350,7 +350,7 @@ async function resetAllSlots() {
 
 module.exports = {
   generateWeeklySlots,
-  resetAllSlots,
+  resetSlots,
   blockDay,
   blockSlot,
   blockPeriod,
