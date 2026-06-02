@@ -599,10 +599,9 @@ async function processAccumulatedMessages(phone, name) {
           tr(phone, "slotTaken"),
         );
       } else {
-        await sendMessage(
-          phone,
-          tr(phone, "bookingConfirm", nomeLimpo, horario),
-        );
+        await sendMessage(phone, tr(phone, "bookingConfirm", nomeLimpo, horario));
+        const lang1 = clientLanguages.get(phone) || "pt";
+        if (lang1 !== "pt") await sendMessage(phone, tr(phone, "langNote"));
         await notifyBarber(
           `✅ *Novo agendamento*\n👤 ${nomeLimpo}\n📅 ${fmtDate(data)}\n🕐 ${horario}`,
         );
@@ -696,6 +695,8 @@ async function processAccumulatedMessages(phone, name) {
           );
         } else {
           await sendMessage(phone, result.resposta);
+          const lang2 = clientLanguages.get(phone) || "pt";
+          if (lang2 !== "pt") await sendMessage(phone, tr(phone, "langNote"));
           await notifyBarber(
             `✅ *Novo agendamento*\n👤 ${name}\n📅 ${fmtDate(result.data)}\n🕐 ${result.horario}`,
           );
