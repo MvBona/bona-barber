@@ -301,69 +301,51 @@ async function resetAllSlots() {
     sheetNames.push(`${year}-${month}`);
   }
 
-  let total = 0;
   const apagados = [];
 
+  // 1. Coleta agendamentos antes de apagar
   for (const sheetName of sheetNames) {
     try {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${sheetName}!A:F`,
+        range: `${sheetName}!A:E`,
       });
-
       const rows = response.data.values || [];
-      const updates = [];
-
-      rows.slice(1).forEach((row, i) => {
-        if (!row[0] || !row[1]) return;
-        if (row[4] === "agendado") {
+      rows.slice(1).forEach((row) => {
+        if (row[4] === "agendado" && row[0] && row[1]) {
           apagados.push({ data: row[0], horario: row[1], nome: row[2], telefone: row[3] });
         }
-        if (row[4] !== "livre") {
-          updates.push({
-            range: `${sheetName}!A${i + 2}:F${i + 2}`,
-            values: [[row[0], row[1], "", "", "livre", ""]],
-          });
-        }
       });
-
-      if (updates.length > 0) {
-        await sheets.spreadsheets.values.batchUpdate({
-          spreadsheetId: SPREADSHEET_ID,
-          requestBody: { valueInputOption: "RAW", data: updates },
-        });
-        total += updates.length;
-      }
     } catch (e) {}
   }
 
-  // generateWeeklySlots começa de amanhã — no reset inclui hoje também
+  // 2. Apaga todos os dados (mantém cabeçalho) e recria as abas
+  for (const sheetName of sheetNames) {
+    try {
+      await ensureSheetExists(sheets, sheetName);
+      await sheets.spreadsheets.values.clear({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${sheetName}!A2:G9999`,
+      });
+    } catch (e) {}
+  }
+
+  // 3. Gera slots do dia atual (generateWeeklySlots começa de amanhã)
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const todaySheetName = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-
   try {
-    await ensureSheetExists(sheets, todaySheetName);
-    const res = await sheets.spreadsheets.values.get({
+    await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${todaySheetName}!A:B`,
+      range: `${todaySheetName}!A2`,
+      valueInputOption: "RAW",
+      requestBody: { values: generateSlots(todayStr) },
     });
-    const rows = res.data.values || [];
-    const existing = new Set(rows.slice(1).map((r) => `${r[0]}_${r[1]}`));
-    const todaySlots = generateSlots(todayStr).filter(
-      (s) => !existing.has(`${s[0]}_${s[1]}`),
-    );
-    if (todaySlots.length > 0) {
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `${todaySheetName}!A:E`,
-        valueInputOption: "RAW",
-        requestBody: { values: todaySlots },
-      });
-    }
   } catch (e) {}
 
+  // 4. Gera slots de amanhã em diante (próximos 2 meses)
   await generateWeeklySlots();
-  return { total, apagados };
+
+  return { total: apagados.length, apagados };
 }
 
 module.exports = {
