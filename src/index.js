@@ -67,6 +67,8 @@ const pendingMessages = new Map();
 // Agendamento pendente aguardando nome válido: phone → { data, horario }
 const waitingForNameToBook = new Map();
 // Cancelamento aguardando motivo: phone → { data, horario }
+// Handoff humano ativo: clientPhone → { name }
+const humanHandoff = new Map();
 const waitingForCancelReason = new Map();
 
 function fmtDate(iso) {
@@ -493,6 +495,24 @@ async function processBarberCommand(text) {
     return `🛠️ *Comandos disponíveis*\n\n*📅 Ver agenda:*\n"agenda hoje"\n"agenda amanhã"\n"agenda 15/06"\n\n*🔒 Bloquear:*\n"bloqueia 15/06"\n"bloqueia 16h do dia 15/06"\n"bloqueia 15/06 ao 22/06"\n\n*🔓 Desbloquear:*\n"desbloqueia 15/06"\n"desbloqueia 16h do dia 15/06"\n\n*👤 Agendar cliente:*\n"marca João dia 15/06 às 14h"\n\n*❌ Cancelar:*\n"cancela 15/06 às 14h"\n\n*🔄 Reagendar:*\n"passa João de 15/06 14h para 16/06 10h"\n\n*🗑️ Zerar agenda:*\n"zerar agenda"`;
   }
 
+  // Barbeiro responde para cliente em handoff: "falar 5511999999999: mensagem"
+  const falarMatch = text.match(/^falar\s+(\d+)\s*:\s*(.+)$/i);
+  if (falarMatch) {
+    const clientPhone = falarMatch[1];
+    const msg = falarMatch[2].trim();
+    await sendMessage(clientPhone, msg);
+    return `✅ Mensagem enviada para ${clientPhone}.`;
+  }
+
+  // Barbeiro encerra handoff: "encerrar 5511999999999"
+  const encerrarMatch = text.match(/^encerrar\s+(\d+)$/i);
+  if (encerrarMatch) {
+    const clientPhone = encerrarMatch[1];
+    humanHandoff.delete(clientPhone);
+    await sendMessage(clientPhone, tr(clientPhone, "handoffEnd"));
+    return `✅ Atendimento com ${clientPhone} encerrado.`;
+  }
+
   if (normalized === "zerar agenda") {
     return `⚠️ *Isso vai apagar TODOS os agendamentos e bloqueios.*\n\nManda *confirmar reset* pra prosseguir.`;
   }
@@ -614,6 +634,13 @@ async function processAccumulatedMessages(phone, name) {
     return;
   }
 
+  // Handoff humano ativo — encaminha mensagem do cliente para o barbeiro
+  if (humanHandoff.has(phone)) {
+    const { name: clientName } = humanHandoff.get(phone);
+    await notifyBarber(`💬 *${clientName}*: ${combinedText}`);
+    return;
+  }
+
   // Verifica se está aguardando motivo de cancelamento
   if (waitingForCancelReason.has(phone)) {
     const { data, horario } = waitingForCancelReason.get(phone);
@@ -665,9 +692,10 @@ async function processAccumulatedMessages(phone, name) {
       norm.includes("atendimento humano");
 
     if (wantsBarbeiro) {
+      humanHandoff.set(phone, { name });
       await sendMessage(phone, tr(phone, "barberNotified"));
       await notifyBarber(
-        `📞 *Cliente quer falar diretamente*\n👤 ${name}\n📞 ${phone}`,
+        `📞 *${name} quer falar diretamente*\n📞 ${phone}\n\nPara responder: *falar ${phone}: sua mensagem*\nPara encerrar: *encerrar ${phone}*`,
       );
       return;
     }

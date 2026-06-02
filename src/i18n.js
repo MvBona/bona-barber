@@ -22,7 +22,8 @@ const translations = {
     rescheduleConflict: "Esse horário já tá ocupado. Escolhe outro livre! 👍🏿",
     rollbackFailed: "Deu um problema aqui — manda *barbeiro* pra resolver, tá? 🙏",
     generalError: "Deu um erro aqui. Espera um pouquinho e tenta dnv! 💪🏿",
-    barberNotified: "Já avisei o barb! Ele te chama em breve. 📞",
+    barberNotified: "Já avisei o cara, daqui a pouco ele já te responde aqui mesmo 📲✌🏿",
+    handoffEnd: "O barbeiro encerrou o atendimento. Qualquer coisa é só chamar! ✂️",
     help: "✂️ *Tô aqui pra te ajudar:*\n\n📅 *Ver horários:*\n\"tem vaga hoje?\"\n\"quais horários amanhã?\"\n\n📌 *Agendar:*\n\"quero marcar às 14h amanhã\"\n\n❌ *Cancelar:*\n\"quero cancelar meu horário\"\n\n🔄 *Reagendar:*\n\"muda meu horário de sexta pra sábado\"\n\n📞 *Falar com o barbeiro:*\nManda *barbeiro* que a gente chama ele",
   },
   es: {
@@ -47,7 +48,8 @@ const translations = {
     rescheduleConflict: "Ese horario ya está ocupado. ¡Elegí otro libre! 👍🏿",
     rollbackFailed: "Hubo un problema — mandá *barbero* para resolverlo. 🙏",
     generalError: "Hubo un error. ¡Esperá un momento y volvé a intentar! 💪🏿",
-    barberNotified: "¡Ya avisé al barbero! Te llama en breve. 📞",
+    barberNotified: "¡Ya avisé al barba, en un momento te responde por aquí mismo! 📲✌🏿",
+    handoffEnd: "El barbero cerró la atención. ¡Cualquier cosa avisá! ✂️",
     help: "✂️ *Estoy aquí para ayudarte:*\n\n📅 *Ver horarios:*\n\"¿hay lugar hoy?\"\n\"¿qué horarios hay mañana?\"\n\n📌 *Reservar:*\n\"quiero reservar a las 14h mañana\"\n\n❌ *Cancelar:*\n\"quiero cancelar mi turno\"\n\n🔄 *Reprogramar:*\n\"cambiá mi turno del viernes al sábado\"\n\n📞 *Hablar con el barbero:*\nMandá *barbero* y lo llamamos",
   },
   en: {
@@ -72,7 +74,8 @@ const translations = {
     rescheduleConflict: "That slot is already taken. Choose another available one! 👍🏿",
     rollbackFailed: "Something went wrong — send *barber* to fix it. 🙏",
     generalError: "An error occurred. Wait a moment and try again! 💪🏿",
-    barberNotified: "I've notified the barber! He'll reach out soon. 📞",
+    barberNotified: "I've notified the barber, he'll get back to you here shortly! 📲✌🏿",
+    handoffEnd: "The barber has ended the chat. Feel free to reach out anytime! ✂️",
     help: "✂️ *I'm here to help:*\n\n📅 *Check availability:*\n\"any slots today?\"\n\"what times are available tomorrow?\"\n\n📌 *Book:*\n\"I want to book at 2pm tomorrow\"\n\n❌ *Cancel:*\n\"I want to cancel my appointment\"\n\n🔄 *Reschedule:*\n\"move my Friday to Saturday\"\n\n📞 *Talk to the barber:*\nSend *barber* and we'll get him",
   },
 };
