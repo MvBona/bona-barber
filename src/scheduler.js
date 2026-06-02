@@ -302,6 +302,7 @@ async function resetAllSlots() {
   }
 
   let total = 0;
+  const apagados = [];
 
   for (const sheetName of sheetNames) {
     try {
@@ -314,6 +315,9 @@ async function resetAllSlots() {
       const updates = [];
 
       rows.slice(1).forEach((row, i) => {
+        if (row[4] === "agendado") {
+          apagados.push({ data: row[0], horario: row[1], nome: row[2], telefone: row[3] });
+        }
         if (row[4] && row[4] !== "livre") {
           updates.push({
             range: `${sheetName}!A${i + 2}:F${i + 2}`,
@@ -358,7 +362,7 @@ async function resetAllSlots() {
   } catch (e) {}
 
   await generateWeeklySlots();
-  return total;
+  return { total, apagados };
 }
 
 module.exports = {

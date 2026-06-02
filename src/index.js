@@ -499,8 +499,20 @@ async function processBarberCommand(text) {
 
   if (normalized === "confirmar reset") {
     try {
-      const total = await resetAllSlots();
-      return `✅ Agenda zerada — ${total} horário(s) resetado(s) para livre.\nNovos slots gerados automaticamente.`;
+      const { total, apagados } = await resetAllSlots();
+      let msg = `✅ Agenda zerada — ${total} horário(s) resetado(s).\n`;
+      if (apagados.length === 0) {
+        msg += "Nenhum agendamento foi apagado.";
+      } else {
+        msg += `\n*Agendamentos apagados (${apagados.length}):*\n`;
+        msg += apagados
+          .map((a) => {
+            const [, m, d] = a.data.split("-");
+            return `👤 ${a.nome} — ${d}/${m} às ${a.horario} — 📞 ${a.telefone}`;
+          })
+          .join("\n");
+      }
+      return msg;
     } catch (e) {
       return `❌ Erro ao zerar agenda: ${e.message}`;
     }
