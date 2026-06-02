@@ -468,8 +468,8 @@ async function processBarberCommand(text) {
       if (schedule.length === 0)
         return `📅 *Agenda ${d}/${m}*\n\nNenhum horário cadastrado.`;
       const lines = schedule.map((s) => {
-        if (s.status === "agendado") return `⚪ ${s.horario} — ${s.nome}`;
-        if (s.status === "bloqueado") return `🔴 ${s.horario} — bloqueado`;
+        if (s.status === "agendado") return `🔴 ${s.horario} — ${s.nome}`;
+        if (s.status === "bloqueado") return `⚪ ${s.horario} — bloqueado`;
         return `🟢 ${s.horario} — livre`;
       });
       return `📅 *Agenda ${d}/${m}*\n\n${lines.join("\n")}`;
@@ -770,8 +770,8 @@ async function processAccumulatedMessages(phone, name) {
           })
           .map((s) => {
             if (s.status === "livre") return `🟢 ${s.horario} — livre`;
-            if (s.status === "bloqueado") return `🔴 ${s.horario} — bloqueado`;
-            return `⚪ ${s.horario} — ocupado`;
+            if (s.status === "bloqueado") return `⚪ ${s.horario} — bloqueado`;
+            return `🔴 ${s.horario} — ocupado`;
           });
         if (lines.length === 0) continue;
         parts.push(`📅 *Agenda ${d}/${m}*\n\n${lines.join("\n")}`);
