@@ -685,8 +685,19 @@ async function processAccumulatedMessages(phone, name) {
         }
       }
     } else if (result.acao === "cancelar" && result.data && result.horario) {
-      waitingForCancelReason.set(phone, { data: result.data, horario: result.horario });
-      await sendMessage(phone, `Entendido. Me conta o motivo do cancelamento pra eu passar pro barbeiro:`);
+      const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+      if (result.data === hoje) {
+        waitingForCancelReason.set(phone, { data: result.data, horario: result.horario });
+        await sendMessage(phone, `Entendido. Me conta o motivo do cancelamento pra eu passar pro barbeiro:`);
+      } else {
+        const cancelled = await cancelSlot(result.data, result.horario, phone);
+        if (!cancelled) {
+          await sendMessage(phone, `Não achei esse horário não. Confirma pra mim? 🤔`);
+        } else {
+          await sendMessage(phone, result.resposta);
+          await notifyBarber(`❎ *Cancelamento*\n👤 ${name}\n📅 ${fmtDate(result.data)}\n🕐 ${result.horario}`);
+        }
+      }
     } else if (result.acao === "confirmar_presenca") {
       await sendMessage(phone, result.resposta);
       const timeInfo = result.horario ? ` às ${result.horario}` : "";
