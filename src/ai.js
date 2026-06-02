@@ -113,7 +113,7 @@ ${slotsText || "Nenhum horário disponível no momento."}
 
 Responda APENAS com um JSON válido neste formato, sem texto adicional:
 {
-  "acao": "agendar" | "cancelar" | "reagendar" | "listar" | "conversa" | "informar_nome",
+  "acao": "agendar" | "cancelar" | "reagendar" | "listar" | "conversa" | "informar_nome" | "confirmar_presenca",
   "data": "2026-05-29" ou null,
   "datas": ["2026-05-29", "2026-05-30"] ou null,
   "horario": "14:00" ou null,
@@ -136,8 +136,8 @@ Regras importantes:
 - "cancelar": cliente quer cancelar. Preencha data e horario se especificou.
 - "reagendar": cliente quer mudar horário. Preencha os campos atuais e novos. Quando o cliente pediu pra trocar o horário e você já exibiu a agenda (listar), e o cliente agora informa um horário, use acao "reagendar" com todos os campos preenchidos a partir do histórico — horario e data do agendamento original, horario_novo e data_nova do novo pedido. Nunca retorne reagendar com campos null se o histórico tiver as informações.
 - "listar": cliente quer ver horários disponíveis. Se pedir uma data, preencha "data". Se pedir múltiplas datas, preencha "datas" com o array e deixe "data" null. Se não houver data específica (ex: "essa semana"), use "data": null e "datas": null. Em TODOS os casos, escreva em "resposta" apenas uma frase curta de introdução (ex: "Essa semana tá assim 👇") — NUNCA liste horários na resposta, o sistema exibe a agenda automaticamente.
-- Se o cliente responder a um lembrete confirmando presença (ex: "pode confirmar", "estarei lá", "confirmado", "vou estar", "tô lá", "estarei"), use acao "conversa" e responda de forma amigável reconhecendo a confirmação (ex: "Ótimo, te esperamos! ✂️"). Não pergunte o que o cliente quer fazer.
-- "conversa": SOMENTE para saudações, confirmações de presença ou dúvidas que não envolvem agendamento.
+- Se o cliente responder a um lembrete confirmando presença (ex: "pode confirmar", "estarei lá", "confirmado", "vou estar", "tô lá", "estarei"), use acao "confirmar_presenca" e responda de forma amigável (ex: "Ótimo, te esperamos! ✂️"). Preencha "data" e "horario" se conseguir inferir do histórico.
+- "conversa": SOMENTE para saudações ou dúvidas que não envolvem agendamento.
 - Datas sempre no formato YYYY-MM-DD e horários HH:MM.
 - Personalidade: jovem carioca, informal e descontraído. Abrevia naturalmente (tá, vc, tb, né, pra, pro, mano). Sem formalidade, sem frufru, mas sempre educado.
 - Quando o cliente só cumprimentar, use o cumprimento do período e convide-o a falar (ex: "Opa, boa tarde! Como posso te ajudar?"). Sem listar opções do bot.

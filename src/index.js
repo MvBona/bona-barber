@@ -63,6 +63,8 @@ const debounceTimers = new Map();
 const pendingMessages = new Map();
 // Agendamento pendente aguardando nome válido: phone → { data, horario }
 const waitingForNameToBook = new Map();
+// Cancelamento aguardando motivo: phone → { data, horario }
+const waitingForCancelReason = new Map();
 
 function fmtDate(iso) {
   const [, m, d] = iso.split("-");
@@ -587,6 +589,24 @@ async function processAccumulatedMessages(phone, name) {
     return;
   }
 
+  // Verifica se está aguardando motivo de cancelamento
+  if (waitingForCancelReason.has(phone)) {
+    const { data, horario } = waitingForCancelReason.get(phone);
+    const motivo = combinedText.trim();
+    waitingForCancelReason.delete(phone);
+    const cancelled = await cancelSlot(data, horario, phone);
+    if (cancelled === "bloqueado_tempo") {
+      await sendMessage(phone, "Não rola cancelar com menos de 2h de antecedência. Se precisar, manda *barbeiro* pra resolver.");
+      await notifyBarber(`⚠️ *Tentativa de cancelamento tardio*\n👤 ${name}\n📞 ${phone}\n📅 ${fmtDate(data)} às ${horario}\n📝 Motivo: ${motivo}`);
+    } else if (!cancelled) {
+      await sendMessage(phone, `Não achei esse horário não. Confirma pra mim? 🤔`);
+    } else {
+      await sendMessage(phone, `Cancelado! Qualquer coisa é só chamar. 👍🏼`);
+      await notifyBarber(`❎ *Cancelamento*\n👤 ${name}\n📅 ${fmtDate(data)}\n🕐 ${horario}\n📝 Motivo: ${motivo}`);
+    }
+    return;
+  }
+
   // Comandos de ajuda e contato do barbeiro (somente clientes)
   if (phone !== BARBERSHOP_PHONE) {
     const norm = combinedText
@@ -665,26 +685,13 @@ async function processAccumulatedMessages(phone, name) {
         }
       }
     } else if (result.acao === "cancelar" && result.data && result.horario) {
-      const cancelled = await cancelSlot(result.data, result.horario, phone);
-      if (cancelled === "bloqueado_tempo") {
-        await sendMessage(
-          phone,
-          "Não rola cancelar com menos de 2h de antecedência. Se precisar, manda *barbeiro* pra resolver.",
-        );
-        await notifyBarber(
-          `⚠️ *Tentativa de cancelamento tardio*\n👤 ${name}\n📞 ${phone}\n📅 ${fmtDate(result.data)} às ${result.horario}`,
-        );
-      } else if (!cancelled) {
-        await sendMessage(
-          phone,
-          `Não achei esse horário não. Confirma pra mim? 🤔`,
-        );
-      } else {
-        await sendMessage(phone, result.resposta);
-        await notifyBarber(
-          `❌ *Cancelamento*\n👤 ${name}\n📅 ${fmtDate(result.data)}\n🕐 ${result.horario}`,
-        );
-      }
+      waitingForCancelReason.set(phone, { data: result.data, horario: result.horario });
+      await sendMessage(phone, `Entendido. Me conta o motivo do cancelamento pra eu passar pro barbeiro:`);
+    } else if (result.acao === "confirmar_presenca") {
+      await sendMessage(phone, result.resposta);
+      const timeInfo = result.horario ? ` às ${result.horario}` : "";
+      const dateInfo = result.data ? ` — ${fmtDate(result.data)}` : "";
+      await notifyBarber(`✅ *Presença confirmada*\n👤 ${name}${dateInfo}${timeInfo}`);
     } else if (
       result.acao === "reagendar" &&
       result.data &&
