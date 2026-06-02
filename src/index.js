@@ -43,6 +43,7 @@ const { transcribeAudio } = require("./transcribe");
 console.log("carregando scheduler...");
 const {
   generateWeeklySlots,
+  resetAllSlots,
   blockDay,
   blockSlot,
   blockPeriod,
@@ -487,7 +488,20 @@ async function processBarberCommand(text) {
     normalized.includes("como usar");
 
   if (hasHelp) {
-    return `🛠️ *Comandos disponíveis*\n\n*📅 Ver agenda:*\n"agenda hoje"\n"agenda amanhã"\n"agenda 15/06"\n\n*🔒 Bloquear:*\n"bloqueia 15/06"\n"bloqueia 16h do dia 15/06"\n"bloqueia 15/06 ao 22/06"\n\n*🔓 Desbloquear:*\n"desbloqueia 15/06"\n"desbloqueia 16h do dia 15/06"\n\n*👤 Agendar cliente:*\n"marca João dia 15/06 às 14h"\n\n*❌ Cancelar:*\n"cancela 15/06 às 14h"\n\n*🔄 Reagendar:*\n"passa João de 15/06 14h para 16/06 10h"`;
+    return `🛠️ *Comandos disponíveis*\n\n*📅 Ver agenda:*\n"agenda hoje"\n"agenda amanhã"\n"agenda 15/06"\n\n*🔒 Bloquear:*\n"bloqueia 15/06"\n"bloqueia 16h do dia 15/06"\n"bloqueia 15/06 ao 22/06"\n\n*🔓 Desbloquear:*\n"desbloqueia 15/06"\n"desbloqueia 16h do dia 15/06"\n\n*👤 Agendar cliente:*\n"marca João dia 15/06 às 14h"\n\n*❌ Cancelar:*\n"cancela 15/06 às 14h"\n\n*🔄 Reagendar:*\n"passa João de 15/06 14h para 16/06 10h"\n\n*🗑️ Zerar agenda:*\n"zerar agenda"`;
+  }
+
+  if (normalized === "zerar agenda") {
+    return `⚠️ *Isso vai apagar TODOS os agendamentos e bloqueios.*\n\nManda *confirmar reset* pra prosseguir.`;
+  }
+
+  if (normalized === "confirmar reset") {
+    try {
+      const total = await resetAllSlots();
+      return `✅ Agenda zerada — ${total} horário(s) resetado(s) para livre.\nNovos slots gerados automaticamente.`;
+    } catch (e) {
+      return `❌ Erro ao zerar agenda: ${e.message}`;
+    }
   }
 
   const pareceComando =

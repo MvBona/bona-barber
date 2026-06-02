@@ -279,8 +279,61 @@ async function unblockPeriod(dataInicio, dataFim) {
   return total;
 }
 
+async function resetAllSlots() {
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+
+  const now = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
+  );
+
+  const sheetNames = [];
+  for (let i = 0; i <= 2; i++) {
+    const d = new Date(now);
+    d.setMonth(d.getMonth() + i);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    sheetNames.push(`${year}-${month}`);
+  }
+
+  let total = 0;
+
+  for (const sheetName of sheetNames) {
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${sheetName}!A:F`,
+      });
+
+      const rows = response.data.values || [];
+      const updates = [];
+
+      rows.slice(1).forEach((row, i) => {
+        if (row[4] && row[4] !== "livre") {
+          updates.push({
+            range: `${sheetName}!A${i + 2}:F${i + 2}`,
+            values: [[row[0], row[1], "", "", "livre", ""]],
+          });
+        }
+      });
+
+      if (updates.length > 0) {
+        await sheets.spreadsheets.values.batchUpdate({
+          spreadsheetId: SPREADSHEET_ID,
+          requestBody: { valueInputOption: "RAW", data: updates },
+        });
+        total += updates.length;
+      }
+    } catch (e) {}
+  }
+
+  await generateWeeklySlots();
+  return total;
+}
+
 module.exports = {
   generateWeeklySlots,
+  resetAllSlots,
   blockDay,
   blockSlot,
   blockPeriod,
