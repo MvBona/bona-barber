@@ -327,6 +327,31 @@ async function resetAllSlots() {
     } catch (e) {}
   }
 
+  // generateWeeklySlots começa de amanhã — no reset inclui hoje também
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const todaySheetName = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  try {
+    await ensureSheetExists(sheets, todaySheetName);
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${todaySheetName}!A:B`,
+    });
+    const rows = res.data.values || [];
+    const existing = new Set(rows.slice(1).map((r) => `${r[0]}_${r[1]}`));
+    const todaySlots = generateSlots(todayStr).filter(
+      (s) => !existing.has(`${s[0]}_${s[1]}`),
+    );
+    if (todaySlots.length > 0) {
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${todaySheetName}!A:E`,
+        valueInputOption: "RAW",
+        requestBody: { values: todaySlots },
+      });
+    }
+  } catch (e) {}
+
   await generateWeeklySlots();
   return total;
 }
