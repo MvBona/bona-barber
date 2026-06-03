@@ -1004,12 +1004,24 @@ app.get("/test/:action", async (req, res) => {
   const { action } = req.params;
   try {
     switch (action) {
-      case "lembrete-2h":
-        await sendReminders(2);
-        return res.json({ ok: true, action });
-      case "lembrete-24h":
-        await sendReminders(24);
-        return res.json({ ok: true, action });
+      case "lembrete-2h": {
+        const appts2 = await getAppointmentsForReminder(2);
+        return res.json({
+          ok: true, dryRun: true,
+          total: appts2.length,
+          agendamentos: appts2.map(a => ({ nome: a.nome, telefone: a.telefone, data: a.data, horario: a.horario, lembretes: a.lembretes })),
+          aviso: "Nenhuma mensagem enviada. Use esta rota apenas para verificar quem receberia o lembrete.",
+        });
+      }
+      case "lembrete-24h": {
+        const appts24 = await getAppointmentsForReminder(24);
+        return res.json({
+          ok: true, dryRun: true,
+          total: appts24.length,
+          agendamentos: appts24.map(a => ({ nome: a.nome, telefone: a.telefone, data: a.data, horario: a.horario, lembretes: a.lembretes })),
+          aviso: "Nenhuma mensagem enviada. Use esta rota apenas para verificar quem receberia o lembrete.",
+        });
+      }
       case "sem-resposta-2h":
         await sendUnconfirmedNotifications("2h", 0);
         return res.json({ ok: true, action });
