@@ -351,13 +351,79 @@ async function getAppointmentsForReminder(horasAntes) {
 async function markReminderSent(sheetName, rowIndex, lembretes, tipo) {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
-  const novo = lembretes ? `${lembretes},${tipo}` : tipo;
+  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  const hhmm = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+  const tag = `${tipo}@${hhmm}`;
+  const novo = lembretes ? `${lembretes},${tag}` : tag;
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
     range: `${sheetName}!G${rowIndex}`,
     valueInputOption: "RAW",
     requestBody: { values: [[novo]] },
   });
+}
+
+async function appendLembretes(sheetName, rowIndex, lembretes, tag) {
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+  const novo = lembretes ? `${lembretes},${tag}` : tag;
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!G${rowIndex}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [[novo]] },
+  });
+}
+
+async function getUnconfirmedReminders(tipo, minutosGraca) {
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+  const sheetNames = getRelevantSheetNames();
+  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  const appointments = [];
+  const avisoTag = `${tipo}-aviso`;
+  const regex = new RegExp(`${tipo}@(\\d{2}:\\d{2})`);
+
+  for (const sheetName of sheetNames) {
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${sheetName}!A:G`,
+      });
+      const rows = response.data.values || [];
+
+      rows.slice(1).forEach((row, i) => {
+        if (row[4] !== "agendado") return;
+        if (!row[0] || !row[1] || !row[3]) return;
+
+        const lembretes = row[6] || "";
+        if (lembretes.includes(avisoTag)) return;
+
+        const match = lembretes.match(regex);
+        if (!match) return;
+
+        const [hh, mm] = match[1].split(":").map(Number);
+        const sent = new Date(now);
+        sent.setHours(hh, mm, 0, 0);
+        if (sent > now) sent.setDate(sent.getDate() - 1);
+
+        const minutosDecorridos = (now - sent) / (1000 * 60);
+        if (minutosDecorridos < minutosGraca) return;
+
+        appointments.push({
+          data: row[0],
+          horario: row[1],
+          nome: row[2],
+          telefone: row[3],
+          sheetName,
+          rowIndex: i + 2,
+          lembretes,
+        });
+      });
+    } catch (e) {}
+  }
+
+  return appointments;
 }
 
 async function getSlotInfo(data, horario) {
@@ -501,6 +567,8 @@ module.exports = {
   getClientAppointments,
   getAppointmentsForReminder,
   markReminderSent,
+  appendLembretes,
+  getUnconfirmedReminders,
   countClientAppointmentsOnDay,
   getSlotInfo,
   getDaySchedule,

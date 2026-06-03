@@ -31,6 +31,8 @@ const {
   rescheduleSlot,
   getAppointmentsForReminder,
   markReminderSent,
+  appendLembretes,
+  getUnconfirmedReminders,
   countClientAppointmentsOnDay,
   getSlotInfo,
   getDaySchedule,
@@ -121,6 +123,26 @@ async function notifyBarber(message) {
     await sendMessage(BARBERSHOP_PHONE, message);
   } catch (error) {
     console.error("Erro ao notificar barbeiro:", error.message);
+  }
+}
+
+async function sendUnconfirmedNotifications(tipo, minutosGraca) {
+  try {
+    const appointments = await getUnconfirmedReminders(tipo, minutosGraca);
+    for (const appt of appointments) {
+      const prazo = tipo === "24h" ? "2h" : "20min";
+      const msg =
+        `⚠️ *Sem confirmação (${prazo})*\n` +
+        `👤 ${appt.nome || "Cliente"}\n` +
+        `📞 ${appt.telefone}\n` +
+        `📅 ${fmtDate(appt.data)} às ${appt.horario}\n` +
+        `Lembrete de ${tipo} enviado mas sem resposta.`;
+      await notifyBarber(msg);
+      await appendLembretes(appt.sheetName, appt.rowIndex, appt.lembretes, `${tipo}-aviso`);
+      console.log(`Aviso sem-resposta (${tipo}) enviado para barbeiro — ${appt.nome} ${appt.telefone}`);
+    }
+  } catch (error) {
+    console.error(`Erro ao verificar sem-resposta ${tipo}:`, error.message);
   }
 }
 
@@ -975,6 +997,15 @@ schedule.schedule("0 10 * * *", () => sendReminders(24), {
   timezone: "America/Sao_Paulo",
 });
 schedule.schedule("0 * * * *", () => sendReminders(2), {
+  timezone: "America/Sao_Paulo",
+});
+
+// Aviso ao barbeiro se cliente não respondeu o lembrete de 24h (prazo: 2h → checa ao meio-dia)
+schedule.schedule("0 12 * * *", () => sendUnconfirmedNotifications("24h", 120), {
+  timezone: "America/Sao_Paulo",
+});
+// Aviso ao barbeiro se cliente não respondeu o lembrete de 2h (prazo: 20min → checa aos :20 de cada hora)
+schedule.schedule("20 * * * *", () => sendUnconfirmedNotifications("2h", 20), {
   timezone: "America/Sao_Paulo",
 });
 
