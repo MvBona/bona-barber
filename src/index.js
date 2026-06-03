@@ -973,13 +973,10 @@ app.get("/api/slots", async (req, res) => {
     const d = date ? new Date(date + "T12:00:00") : now;
     if (d.getDay() !== 0) dates = [FMT(d)];
   } else if (view === "semana") {
-    const dow = now.getDay();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
-    for (let i = 0; i < 6; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      dates.push(FMT(d));
+    const cursor = new Date(now);
+    while (dates.length < 6) {
+      if (cursor.getDay() !== 0) dates.push(FMT(cursor));
+      cursor.setDate(cursor.getDate() + 1);
     }
   } else if (view === "mes" || view === "proximo") {
     const offset = view === "proximo" ? 1 : 0;
