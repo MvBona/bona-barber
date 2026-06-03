@@ -996,6 +996,37 @@ app.get("/api/slots", async (req, res) => {
   }
 });
 
+const TEST_TOKEN = process.env.TEST_TOKEN;
+app.get("/test/:action", async (req, res) => {
+  if (!TEST_TOKEN || req.query.token !== TEST_TOKEN) {
+    return res.status(401).json({ error: "Token inválido" });
+  }
+  const { action } = req.params;
+  try {
+    switch (action) {
+      case "lembrete-2h":
+        await sendReminders(2);
+        return res.json({ ok: true, action });
+      case "lembrete-24h":
+        await sendReminders(24);
+        return res.json({ ok: true, action });
+      case "sem-resposta-2h":
+        await sendUnconfirmedNotifications("2h", 0);
+        return res.json({ ok: true, action });
+      case "sem-resposta-24h":
+        await sendUnconfirmedNotifications("24h", 0);
+        return res.json({ ok: true, action });
+      case "resumo":
+        await sendWeeklySummary();
+        return res.json({ ok: true, action });
+      default:
+        return res.status(404).json({ error: "Ação desconhecida" });
+    }
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
 app.post("/webhook", async (req, res) => {
   const body = req.body;
 
