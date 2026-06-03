@@ -161,6 +161,8 @@
       justify-content:center; cursor:pointer; transition:all .15s; padding:3px; position:relative;
     }
     .cal-cell.empty { background:transparent; border-color:transparent; cursor:default; }
+    .cal-cell.prev-month { opacity:.15; cursor:default; }
+    .cal-cell.prev-month:hover { border-color:var(--border); background:var(--bg2); }
     .cal-cell.sunday {
       background:var(--bg2); border-color:var(--border); cursor:default;
       opacity:.18;
@@ -451,7 +453,11 @@ function renderMonth(data) {
     <div class="cal-head">${DAYS.map((d,i)=>`<div class="cal-wn${i===0?' sun':''}">${d}</div>`).join('')}</div>
     <div class="cal-grid">`;
 
-  for (let i = 0; i < firstDow; i++) html += '<div class="cal-cell empty"></div>';
+  const prevMonthLastDay = new Date(year, month, 0).getDate();
+  for (let i = 0; i < firstDow; i++) {
+    const prevDay = prevMonthLastDay - firstDow + 1 + i;
+    html += `<div class="cal-cell prev-month"><div class="cdn">${prevDay}</div></div>`;
+  }
 
   for (let d = 1; d <= daysInMonth; d++) {
     const ds = `${year}-${PAD(month+1)}-${PAD(d)}`;
