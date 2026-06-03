@@ -965,8 +965,21 @@ app.post("/api/book", async (req, res) => {
   }
 
   const digits = String(telefone).replace(/\D/g, "");
-  const phone = digits.length <= 11 && !digits.startsWith("55") ? "55" + digits : digits;
-  if (phone.length < 10 || phone.length > 13) {
+  let phone = digits;
+  if (digits.startsWith("595") && digits.length === 12) {
+    phone = digits; // Paraguay com código: 595XXXXXXXXX
+  } else if (digits.startsWith("09") && digits.length === 10) {
+    phone = "595" + digits.slice(1); // Paraguay: 0994123456 → 595994123456
+  } else if (digits.startsWith("9") && digits.length === 9) {
+    phone = "595" + digits; // Paraguay: 994123456 → 595994123456
+  } else if (digits.startsWith("55") && digits.length >= 12) {
+    phone = digits; // Brasil com código
+  } else if (digits.length === 11) {
+    phone = "55" + digits; // Brasil: 21999991234
+  } else if (digits.length === 10) {
+    phone = "55" + digits; // Brasil fixo
+  }
+  if (phone.length < 11 || phone.length > 13) {
     return res.status(400).json({ error: "Número de WhatsApp inválido." });
   }
 

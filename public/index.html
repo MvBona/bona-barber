@@ -294,15 +294,15 @@
 </header>
 
 <nav>
-  <button class="active" data-view="dia"    onclick="setView('dia')">Dia</button>
+  <button class="active" data-view="dia"    onclick="setView('dia')">Día</button>
   <button              data-view="semana" onclick="setView('semana')">Semana</button>
-  <button              data-view="mes"    onclick="setView('mes')">Mês</button>
+  <button              data-view="mes"    onclick="setView('mes')">Mes</button>
   <button              data-view="proximo" onclick="setView('proximo')">Próximo</button>
 </nav>
 
 <main>
   <div id="content">
-    <div class="loading"><div class="spinner"></div><br>Carregando...</div>
+    <div class="loading"><div class="spinner"></div><br>Cargando...</div>
   </div>
 </main>
 
@@ -313,10 +313,10 @@
     <button class="modal-close" onclick="closeModal()">✕</button>
     <div class="modal-title">Agendar</div>
     <div class="modal-sub" id="modal-sub"></div>
-    <div class="modal-warning" id="modal-warning" style="display:none">⚡ Horário próximo — sujeito à aprovação do barbeiro</div>
-    <input id="book-nome" class="modal-input" type="text" placeholder="Seu nome" autocomplete="name">
-    <input id="book-phone" class="modal-input" type="tel" placeholder="WhatsApp (ex: 21999991234)" autocomplete="tel">
-    <button id="book-btn" class="modal-btn" onclick="submitBooking()">Confirmar agendamento</button>
+    <div class="modal-warning" id="modal-warning" style="display:none">⚡ Horario próximo — sujeto a aprobación del barbero</div>
+    <input id="book-nome" class="modal-input" type="text" placeholder="Tu nombre" autocomplete="name">
+    <input id="book-phone" class="modal-input" type="tel" placeholder="WhatsApp (ej: 0994 123 456)" autocomplete="tel">
+    <button id="book-btn" class="modal-btn" onclick="submitBooking()">Confirmar turno</button>
     <div id="book-msg" class="modal-msg"></div>
   </div>
 </div>
@@ -329,8 +329,8 @@
 <script>
 const PAD = n => String(n).padStart(2,'0');
 const FMT = d => `${d.getFullYear()}-${PAD(d.getMonth()+1)}-${PAD(d.getDate())}`;
-const DAYS  = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-const MONTHS= ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const DAYS  = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const MONTHS= ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 let view = 'dia';
 let navDate = new Date();
@@ -341,7 +341,7 @@ function markUpdated() {
   const el = document.getElementById('last-update');
   if (!el) return;
   const now = new Date();
-  el.textContent = `atualizado às ${PAD(now.getHours())}:${PAD(now.getMinutes())}`;
+  el.textContent = `actualizado a las ${PAD(now.getHours())}:${PAD(now.getMinutes())}`;
   el.classList.add('fresh');
   setTimeout(() => el.classList.remove('fresh'), 1500);
 }
@@ -369,7 +369,7 @@ function setView(v) {
 
 async function load() {
   document.getElementById('content').innerHTML =
-    '<div class="loading"><div class="spinner"></div><br>Carregando...</div>';
+    '<div class="loading"><div class="spinner"></div><br>Cargando...</div>';
   try {
     const qs = view === 'dia' ? `&date=${FMT(navDate)}` : '';
     const r = await fetch(`/api/slots?view=${view}${qs}`);
@@ -378,7 +378,7 @@ async function load() {
     markUpdated();
   } catch(e) {
     document.getElementById('content').innerHTML =
-      '<div class="loading">Erro ao carregar. Tente novamente.</div>';
+      '<div class="loading">Error al cargar. Intente de nuevo.</div>';
   }
 }
 
@@ -391,7 +391,7 @@ function render(data) {
 /* ── DIA ── */
 function renderDay(data) {
   const day = data.dates[0];
-  if (!day) { document.getElementById('content').innerHTML = '<div class="loading">Sem dados.</div>'; return; }
+  if (!day) { document.getElementById('content').innerHTML = '<div class="loading">Sin datos.</div>'; return; }
 
   const todayStr = FMT(new Date());
   const isPast = day.date < todayStr;
@@ -409,7 +409,7 @@ function renderDay(data) {
   const livre = isPast ? 0 : visible.filter(s => s.status === 'livre').length;
   const [,mm,dd] = day.date.split('-');
   const dayName = DAYS[new Date(day.date+'T12:00:00').getDay()];
-  const subtitle = isPast ? 'Dia passado' : `${livre} disponív${livre===1?'el':'eis'}`;
+  const subtitle = isPast ? 'Día pasado' : `${livre} disponible${livre===1?'':'s'}`;
 
   let html = `
     <div class="day-nav">
@@ -423,11 +423,11 @@ function renderDay(data) {
 
   if (!isPast) {
     html += `<div class="legend">
-      <div class="legend-item"><div class="ldot" style="background:var(--green)"></div>Disponível</div>
+      <div class="legend-item"><div class="ldot" style="background:var(--green)"></div>Disponible</div>
       <div class="legend-item"><div class="ldot" style="background:var(--red)"></div>Ocupado</div>
     </div>`;
   } else {
-    html += `<div class="past-banner">Horários encerrados para este dia</div>`;
+    html += `<div class="past-banner">Horarios cerrados para este día</div>`;
   }
 
   html += `<div class="slots-list">`;
@@ -436,11 +436,11 @@ function renderDay(data) {
   const slotsToShow = (!visible.length && isPast) ? DEFAULT_HOURS.map(h => ({ horario: h, status: 'livre' })) : visible;
 
   if (!slotsToShow.length) {
-    html += `<div class="empty-msg"><div class="eico">✂</div><p>Sem horários disponíveis</p></div>`;
+    html += `<div class="empty-msg"><div class="eico">✂</div><p>Sin horarios disponibles</p></div>`;
   } else {
     for (const s of slotsToShow) {
       const cls = isPast ? 'passado' : (s.status === 'agendado' ? 'ocupado' : s.status);
-      const lbl = isPast ? 'Encerrado' : (s.status === 'livre' ? 'Disponível' : s.status === 'bloqueado' ? 'Bloqueado' : 'Ocupado');
+      const lbl = isPast ? 'Cerrado' : (s.status === 'livre' ? 'Disponible' : s.status === 'bloqueado' ? 'Bloqueado' : 'Ocupado');
       const click = (cls === 'livre') ? `onclick="openBooking('${day.date}','${s.horario}')"` : '';
       html += `<div class="slot-row ${cls}" ${click}><div class="sdot"></div><div class="stime">${s.horario}</div><div class="slabel">${lbl}</div></div>`;
     }
@@ -472,7 +472,7 @@ function renderWeek(data) {
 
   let html = `
     <div class="legend" style="margin-bottom:1.2rem">
-      <div class="legend-item"><div class="ldot" style="background:var(--green)"></div>Disponível</div>
+      <div class="legend-item"><div class="ldot" style="background:var(--green)"></div>Disponible</div>
       <div class="legend-item"><div class="ldot" style="background:var(--red)"></div>Ocupado</div>
     </div>
     <div class="week-wrap"><div class="week-grid">`;
@@ -508,7 +508,7 @@ function renderWeek(data) {
 
 /* ── MÊS ── */
 function renderMonth(data) {
-  if (!data.dates.length) { document.getElementById('content').innerHTML = '<div class="loading">Sem dados.</div>'; return; }
+  if (!data.dates.length) { document.getElementById('content').innerHTML = '<div class="loading">Sin datos.</div>'; return; }
 
   const fd = new Date(data.dates[0].date+'T12:00:00');
   const year = fd.getFullYear(), month = fd.getMonth();
@@ -561,11 +561,11 @@ function renderMonth(data) {
 
     html += `<div class="${cls}" ${click}>
       <div class="cdn">${d}</div>
-      ${isSun ? `<div class="sun-label">Fechado</div>` : ''}
+      ${isSun ? `<div class="sun-label">Cerrado</div>` : ''}
       ${showBar ? `
         <div class="cbar" style="background:linear-gradient(to right,${barColor} ${barW}%,#252525 ${barW}%)"></div>
-        ${!isPast && livre > 0 ? `<div class="ccount">${livre} livre${livre !== 1 ? 's' : ''}</div>` : ''}
-        ${!isPast && livre === 0 && total > 0 ? `<div class="ccount" style="color:var(--red)">Lotado</div>` : ''}
+        ${!isPast && livre > 0 ? `<div class="ccount">${livre} libre${livre !== 1 ? 's' : ''}</div>` : ''}
+        ${!isPast && livre === 0 && total > 0 ? `<div class="ccount" style="color:var(--red)">Lleno</div>` : ''}
       ` : ''}
     </div>`;
   }
@@ -598,7 +598,7 @@ function openBooking(date, horario) {
 
   document.getElementById('modal-sub').textContent = `${dd}/${mm} às ${horario}`;
   document.getElementById('modal-warning').style.display = urgent ? 'block' : 'none';
-  document.getElementById('book-btn').textContent = urgent ? 'Solicitar aprovação' : 'Confirmar agendamento';
+  document.getElementById('book-btn').textContent = urgent ? 'Solicitar aprobación' : 'Confirmar turno';
   document.getElementById('book-nome').value = '';
   document.getElementById('book-phone').value = '';
   document.getElementById('book-msg').textContent = '';
@@ -624,9 +624,9 @@ async function submitBooking() {
   const msg = document.getElementById('book-msg');
   const btn = document.getElementById('book-btn');
 
-  if (!nome || nome.length < 2) { msg.textContent = 'Informe seu nome.'; msg.className = 'modal-msg err'; return; }
+  if (!nome || nome.length < 2) { msg.textContent = 'Ingresá tu nombre.'; msg.className = 'modal-msg err'; return; }
   const digits = telefone.replace(/\D/g, '');
-  if (digits.length < 10) { msg.textContent = 'Número de WhatsApp inválido.'; msg.className = 'modal-msg err'; return; }
+  if (digits.length < 9) { msg.textContent = 'Número de WhatsApp inválido.'; msg.className = 'modal-msg err'; return; }
 
   btn.disabled = true;
   msg.textContent = 'Aguarde...'; msg.className = 'modal-msg';
@@ -643,13 +643,13 @@ async function submitBooking() {
       btn.disabled = false; return;
     }
     if (data.tipo === 'pendente') {
-      msg.textContent = '⏳ Solicitação enviada! O barbeiro confirmará em breve.'; msg.className = 'modal-msg pend';
+      msg.textContent = '⏳ ¡Solicitud enviada! El barbero confirmará en breve.'; msg.className = 'modal-msg pend';
     } else {
-      msg.textContent = '✅ Agendado! Você receberá lembretes no WhatsApp.'; msg.className = 'modal-msg ok';
+      msg.textContent = '✅ ¡Turno confirmado! Recibirás recordatorios por WhatsApp.'; msg.className = 'modal-msg ok';
     }
     setTimeout(() => { closeModal(); load(); }, 2500);
   } catch(e) {
-    msg.textContent = 'Erro de conexão. Tente novamente.'; msg.className = 'modal-msg err';
+    msg.textContent = 'Error de conexión. Intentá de nuevo.'; msg.className = 'modal-msg err';
     btn.disabled = false;
   }
 }
