@@ -37,6 +37,7 @@ const {
   getSlotInfo,
   getDaySchedule,
   updateClientPhone,
+  getClientName,
   getWeeklySummary,
   getSlotsForDates,
 } = require("./sheets");
@@ -635,6 +636,12 @@ async function processAccumulatedMessages(phone, name) {
   debounceTimers.delete(phone);
 
   if (messages.length === 0) return;
+
+  // Se o nome do WhatsApp não for válido, busca no histórico do sheet
+  if (!isValidName(name)) {
+    const savedName = await getClientName(phone);
+    if (savedName) name = savedName;
+  }
 
   const combinedText = messages.join(" ");
   console.log(

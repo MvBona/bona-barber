@@ -267,6 +267,25 @@ async function rescheduleSlot(
   return true;
 }
 
+async function getClientName(telefone) {
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+  const sheetNames = getRelevantSheetNames();
+
+  for (const sheetName of sheetNames) {
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${sheetName}!A:E`,
+      });
+      const rows = response.data.values || [];
+      const found = rows.slice(1).find((row) => row[3] === telefone && row[2] && row[2].trim());
+      if (found) return found[2].trim();
+    } catch (e) {}
+  }
+  return null;
+}
+
 async function getClientAppointments(telefone) {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
@@ -657,6 +676,7 @@ module.exports = {
   getDaySchedule,
   updateSlotName,
   updateClientPhone,
+  getClientName,
   getWeeklySummary,
   getSlotsForDates,
 };
