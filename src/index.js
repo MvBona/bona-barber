@@ -982,43 +982,49 @@ app.post("/webhook", async (req, res) => {
   res.sendStatus(200);
 });
 
-schedule.schedule(
-  "0 1 * * *",
-  () => {
-    console.log("Limpando histórico de conversas...");
-    clearAllHistories();
-    waitingForNameToBook.clear();
-    console.log("Histórico limpo!");
-  },
-  { timezone: "America/Sao_Paulo" },
-);
+const CRONS_ENABLED = process.env.CRONS_ENABLED !== "false";
 
-schedule.schedule("0 10 * * *", () => sendReminders(24), {
-  timezone: "America/Sao_Paulo",
-});
-schedule.schedule("0 * * * *", () => sendReminders(2), {
-  timezone: "America/Sao_Paulo",
-});
+if (CRONS_ENABLED) {
+  schedule.schedule(
+    "0 1 * * *",
+    () => {
+      console.log("Limpando histórico de conversas...");
+      clearAllHistories();
+      waitingForNameToBook.clear();
+      console.log("Histórico limpo!");
+    },
+    { timezone: "America/Sao_Paulo" },
+  );
 
-// Aviso ao barbeiro se cliente não respondeu o lembrete de 24h (prazo: 2h → checa ao meio-dia)
-schedule.schedule("0 12 * * *", () => sendUnconfirmedNotifications("24h", 120), {
-  timezone: "America/Sao_Paulo",
-});
-// Aviso ao barbeiro se cliente não respondeu o lembrete de 2h (prazo: 20min → checa aos :20 de cada hora)
-schedule.schedule("20 * * * *", () => sendUnconfirmedNotifications("2h", 20), {
-  timezone: "America/Sao_Paulo",
-});
+  schedule.schedule("0 10 * * *", () => sendReminders(24), {
+    timezone: "America/Sao_Paulo",
+  });
+  schedule.schedule("0 * * * *", () => sendReminders(2), {
+    timezone: "America/Sao_Paulo",
+  });
 
-schedule.schedule(
-  "0 0 * * *",
-  () => {
-    console.log("Verificando e gerando horários...");
-    generateWeeklySlots()
-      .then(() => console.log("Horários verificados com sucesso!"))
-      .catch((err) => console.error("Erro ao gerar horários:", err.message));
-  },
-  { timezone: "America/Sao_Paulo" },
-);
+  schedule.schedule("0 12 * * *", () => sendUnconfirmedNotifications("24h", 120), {
+    timezone: "America/Sao_Paulo",
+  });
+  schedule.schedule("20 * * * *", () => sendUnconfirmedNotifications("2h", 20), {
+    timezone: "America/Sao_Paulo",
+  });
+
+  schedule.schedule(
+    "0 0 * * *",
+    () => {
+      console.log("Verificando e gerando horários...");
+      generateWeeklySlots()
+        .then(() => console.log("Horários verificados com sucesso!"))
+        .catch((err) => console.error("Erro ao gerar horários:", err.message));
+    },
+    { timezone: "America/Sao_Paulo" },
+  );
+
+  console.log("Crons ativos.");
+} else {
+  console.log("Crons desativados (CRONS_ENABLED=false).");
+}
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
