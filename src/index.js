@@ -37,6 +37,7 @@ const {
   getSlotInfo,
   getDaySchedule,
   updateClientPhone,
+  getWeeklySummary,
   getSlotsForDates,
 } = require("./sheets");
 
@@ -126,6 +127,30 @@ async function notifyBarber(message) {
     await sendMessage(BARBERSHOP_PHONE, message);
   } catch (error) {
     console.error("Erro ao notificar barbeiro:", error.message);
+  }
+}
+
+async function sendWeeklySummary() {
+  try {
+    const { semanaPassada, proximaSemana } = await getWeeklySummary();
+
+    const total = semanaPassada.length;
+    const nomes = [...new Set(semanaPassada.map((s) => s.nome))];
+    const listaClientes = nomes.length
+      ? nomes.map((n) => `• ${n}`).join("\n")
+      : "• Nenhum atendimento registrado";
+
+    const msg =
+      `📊 *Resumo da semana*\n\n` +
+      `✂️ *Semana passada — ${total} atendimento${total !== 1 ? "s" : ""}*\n` +
+      `${listaClientes}\n\n` +
+      `📅 *Semana que vem — ${proximaSemana.length} agendamento${proximaSemana.length !== 1 ? "s" : ""} confirmado${proximaSemana.length !== 1 ? "s" : ""}*\n\n` +
+      `Bom descanso! 🙌`;
+
+    await notifyBarber(msg);
+    console.log("Resumo semanal enviado ao barbeiro.");
+  } catch (error) {
+    console.error("Erro ao enviar resumo semanal:", error.message);
   }
 }
 
@@ -1047,6 +1072,10 @@ if (CRONS_ENABLED) {
     timezone: "America/Sao_Paulo",
   });
   schedule.schedule("20 * * * *", () => sendUnconfirmedNotifications("2h", 20), {
+    timezone: "America/Sao_Paulo",
+  });
+
+  schedule.schedule("0 12 * * 0", () => sendWeeklySummary(), {
     timezone: "America/Sao_Paulo",
   });
 

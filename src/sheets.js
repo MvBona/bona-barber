@@ -518,6 +518,56 @@ async function updateSlotName(telefone, nome) {
   }
 }
 
+async function getWeeklySummary() {
+  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  const PAD = (n) => String(n).padStart(2, "0");
+  const FMT = (d) => `${d.getFullYear()}-${PAD(d.getMonth() + 1)}-${PAD(d.getDate())}`;
+
+  const pastDates = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now);
+    d.setDate(now.getDate() - 6 + i);
+    return FMT(d);
+  });
+  const nextDates = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now);
+    d.setDate(now.getDate() + 1 + i);
+    return FMT(d);
+  });
+
+  const allDates = [...pastDates, ...nextDates];
+  const byMonth = {};
+  for (const date of allDates) {
+    const sheet = getSheetName(date);
+    if (!byMonth[sheet]) byMonth[sheet] = new Set();
+    byMonth[sheet].add(date);
+  }
+
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+
+  const slotsByDate = {};
+  for (const [sheetName, monthDates] of Object.entries(byMonth)) {
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${sheetName}!A:E`,
+      });
+      const rows = response.data.values || [];
+      for (const row of rows.slice(1)) {
+        if (monthDates.has(row[0]) && row[4] === "agendado") {
+          if (!slotsByDate[row[0]]) slotsByDate[row[0]] = [];
+          slotsByDate[row[0]].push({ horario: row[1], nome: row[2] || "Cliente" });
+        }
+      }
+    } catch (e) {}
+  }
+
+  const semanaPassada = pastDates.flatMap((d) => (slotsByDate[d] || []).map((s) => ({ ...s, data: d })));
+  const proximaSemana = nextDates.flatMap((d) => slotsByDate[d] || []);
+
+  return { semanaPassada, proximaSemana };
+}
+
 async function updateClientPhone(data, horario, telefone) {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
@@ -601,5 +651,6 @@ module.exports = {
   getDaySchedule,
   updateSlotName,
   updateClientPhone,
+  getWeeklySummary,
   getSlotsForDates,
 };
