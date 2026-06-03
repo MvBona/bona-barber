@@ -445,26 +445,43 @@ async function processBarberCommand(text) {
     const timeMatch = extractTime(normalized);
     const dateMatch = extractDate(normalized);
     if (timeMatch && dateMatch) {
-      const nameMatch = normalized.match(
-        /(?:agenda|marca|reserva)\s+(?:pra?\s+|para\s+)?([a-záàãâéêíóôõúç\s]+?)(?:\s+dia|\s+hoje|\s+amanha|\s+\d{1,2}[\/h])/,
-      );
-      const clientName = nameMatch
-        ? nameMatch[1].trim().replace(/\b\w/g, (c) => c.toUpperCase())
+      // Extrai número do cliente (8-13 dígitos, ignora partes de datas)
+      const phoneExtract = (() => {
+        const sem_datas = normalized.replace(/\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?/g, "");
+        const m = sem_datas.match(/\b(\d{8,13})\b/);
+        if (!m) return null;
+        let num = m[1];
+        if (!num.startsWith("55") && num.length <= 11) num = "55" + num;
+        return num.length >= 10 ? num : null;
+      })();
+      const clientPhone = phoneExtract || BARBERSHOP_PHONE;
+
+      // Extrai nome removendo todos os outros elementos da mensagem
+      const afterVerb = normalized.replace(/.*?(?:agenda|marca|reserva)\s+(?:pra?\s+|para\s+)?/, "");
+      const nameRaw = afterVerb
+        .replace(/\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?/g, "")
+        .replace(/\b\d{8,13}\b/g, "")
+        .replace(/\b\d{1,2}\s*h\b/g, "")
+        .replace(/\b(?:dia|hoje|amanha|às|as|de|do|da|para|pra|no|na)\b/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      const clientName = nameRaw
+        ? nameRaw.replace(/\b\w/g, (c) => c.toUpperCase())
         : "Cliente";
+
       const existing = await getSlotInfo(dateMatch, timeMatch);
       if (existing && existing.status === "agendado") {
         const [y, m, d] = dateMatch.split("-");
         return `⚠️ ${d}/${m} às ${timeMatch} já está com *${existing.nome}*.`;
       }
-      const booked = await bookSlotAdmin(
-        dateMatch,
-        timeMatch,
-        clientName,
-        BARBERSHOP_PHONE,
-      );
+      const booked = await bookSlotAdmin(dateMatch, timeMatch, clientName, clientPhone);
       const [y, m, d] = dateMatch.split("-");
-      if (booked)
-        return `✅ Agendado *${clientName}* — ${d}/${m} às ${timeMatch}.`;
+      if (booked) {
+        const phoneTag = phoneExtract
+          ? `\n📞 ${phoneExtract}`
+          : `\n⚠️ Sem número — cliente não receberá lembretes.`;
+        return `✅ Agendado *${clientName}* — ${d}/${m} às ${timeMatch}.${phoneTag}`;
+      }
       return `❌ Não consegui agendar ${clientName} em ${d}/${m} às ${timeMatch}.`;
     }
   }

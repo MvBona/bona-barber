@@ -131,7 +131,9 @@
     .week-col-head {
       text-align:center; padding:.6rem .2rem; background:var(--bg3);
       border:1px solid var(--border); border-radius:6px 6px 0 0; border-bottom:none;
+      cursor:pointer; transition:border-color .15s, background .15s;
     }
+    .week-col-head:not(.past):hover { border-color:var(--gold); background:var(--gold-dim); }
     .wdn { font-family:'Cinzel',serif; font-size:.6rem; color:var(--gold); letter-spacing:.08em; text-transform:uppercase; }
     .wdd { font-size:1.1rem; font-weight:600; }
     .week-slots { border:1px solid var(--border); border-radius:0 0 6px 6px; overflow:hidden; }
@@ -351,7 +353,7 @@ function renderWeek(data) {
     const [,mm,dd] = day.date.split('-');
     const dn = DAYS[new Date(day.date+'T12:00:00').getDay()];
     html += `<div class="week-col">
-      <div class="week-col-head${isPast ? ' past' : ''}"><div class="wdn">${dn}</div><div class="wdd">${dd}</div></div>
+      <div class="week-col-head${isPast ? ' past' : ''}" onclick="gotoDay('${day.date}')"><div class="wdn">${dn}</div><div class="wdd">${dd}</div></div>
       <div class="week-slots">`;
     const weekSlots = (!day.slots.length && isPast)
       ? ['10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'].map(h => ({ horario: h, status: 'livre' }))
