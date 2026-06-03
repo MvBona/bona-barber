@@ -153,19 +153,25 @@
     }
     .cal-head { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; margin-bottom:3px; }
     .cal-wn { text-align:center; font-family:'Cinzel',serif; font-size:.6rem; color:var(--gold); letter-spacing:.08em; padding:.3rem 0; }
+    .cal-wn.sun { color:var(--muted); opacity:.4; }
     .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
     .cal-cell {
       aspect-ratio:1; background:var(--bg2); border:1px solid var(--border);
       border-radius:6px; display:flex; flex-direction:column; align-items:center;
       justify-content:center; cursor:pointer; transition:all .15s; padding:3px; position:relative;
     }
-    .cal-cell.empty, .cal-cell.sunday { background:transparent; border-color:transparent; cursor:default; }
+    .cal-cell.empty { background:transparent; border-color:transparent; cursor:default; }
+    .cal-cell.sunday {
+      background:var(--bg2); border-color:var(--border); cursor:default;
+      opacity:.18;
+    }
     .cal-cell.past { opacity:.28; }
     .cal-cell:not(.empty):not(.sunday):hover { border-color:var(--gold); background:var(--gold-dim); }
     .cal-cell.today { border-color:var(--gold) !important; }
     .cdn { font-size:.82rem; font-weight:600; }
+    .sun-label { font-size:.5rem; color:var(--muted); letter-spacing:.06em; text-transform:uppercase; margin-top:2px; }
     .cbar { width:75%; height:3px; border-radius:2px; margin-top:3px; }
-    .ccount { font-size:.55rem; color:var(--muted); margin-top:2px; }
+    .ccount { font-size:.62rem; color:var(--muted); margin-top:3px; letter-spacing:.04em; }
 
     /* ── FOOTER ── */
     footer {
@@ -418,7 +424,7 @@ function renderMonth(data) {
   const todayStr = FMT(new Date());
 
   let html = `<div class="month-title">${MONTHS[month]} ${year}</div>
-    <div class="cal-head">${DAYS.map(d=>`<div class="cal-wn">${d}</div>`).join('')}</div>
+    <div class="cal-head">${DAYS.map((d,i)=>`<div class="cal-wn${i===0?' sun':''}">${d}</div>`).join('')}</div>
     <div class="cal-grid">`;
 
   for (let i = 0; i < firstDow; i++) html += '<div class="cal-cell empty"></div>';
@@ -455,10 +461,11 @@ function renderMonth(data) {
 
     html += `<div class="${cls}" ${click}>
       <div class="cdn">${d}</div>
+      ${isSun ? `<div class="sun-label">Fechado</div>` : ''}
       ${showBar ? `
         <div class="cbar" style="background:linear-gradient(to right,${barColor} ${barW}%,#252525 ${barW}%)"></div>
-        ${!isPast && livre > 0 ? `<div class="ccount">${livre}</div>` : ''}
-        ${!isPast && livre === 0 && total > 0 ? `<div class="ccount">—</div>` : ''}
+        ${!isPast && livre > 0 ? `<div class="ccount">${livre} vagas</div>` : ''}
+        ${!isPast && livre === 0 && total > 0 ? `<div class="ccount">Lotado</div>` : ''}
       ` : ''}
     </div>`;
   }
