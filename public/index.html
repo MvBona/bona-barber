@@ -199,7 +199,31 @@
 
     @media(max-width:480px) {
       header h1 { font-size:1.5rem; }
+      header img { width:100px; height:100px; }
       .day-title .dt-main { font-size:1.2rem; }
+
+      /* Calendar mobile */
+      main { padding:1.2rem .6rem 5rem; }
+      .cal-grid { gap:3px; }
+      .cal-head { gap:2px; }
+      .cal-cell {
+        aspect-ratio:unset;
+        min-height:52px;
+        padding:4px 2px;
+        border-radius:5px;
+      }
+      .cdn { font-size:.78rem; }
+      .ccount { font-size:.52rem; }
+      .sun-label { display:none; }
+      .cbar { width:70%; height:2px; margin-top:2px; }
+      .cal-wn { font-size:.52rem; padding:.25rem 0; }
+      .month-title { font-size:.95rem; }
+
+      /* Nav */
+      nav button { font-size:.6rem; padding:.8rem .2rem; }
+
+      /* WhatsApp btn */
+      .whatsapp-btn { padding:.6rem 1rem; font-size:.65rem; bottom:1rem; right:1rem; }
     }
   </style>
 </head>
@@ -241,7 +265,7 @@ const MONTHS= ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Ag
 let view = 'dia';
 let navDate = new Date();
 let pollTimer = null;
-const POLL_MS = 20000;
+const POLL_MS = 45000;
 
 function markUpdated() {
   const el = document.getElementById('last-update');
@@ -464,8 +488,8 @@ function renderMonth(data) {
       ${isSun ? `<div class="sun-label">Fechado</div>` : ''}
       ${showBar ? `
         <div class="cbar" style="background:linear-gradient(to right,${barColor} ${barW}%,#252525 ${barW}%)"></div>
-        ${!isPast && livre > 0 ? `<div class="ccount">${livre} vagas</div>` : ''}
-        ${!isPast && livre === 0 && total > 0 ? `<div class="ccount">Lotado</div>` : ''}
+        ${!isPast && livre > 0 ? `<div class="ccount">${livre} livre${livre !== 1 ? 's' : ''}</div>` : ''}
+        ${!isPast && livre === 0 && total > 0 ? `<div class="ccount" style="color:var(--red)">Lotado</div>` : ''}
       ` : ''}
     </div>`;
   }
