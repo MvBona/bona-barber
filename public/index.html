@@ -29,7 +29,21 @@
       padding:2.5rem 1rem 2rem;
       background:linear-gradient(180deg,#111 0%,var(--bg) 100%);
       border-bottom:1px solid var(--border);
+      position:relative;
     }
+    .lang-toggle {
+      position:absolute; top:.9rem; right:.9rem;
+      display:flex; gap:2px;
+      background:var(--bg3); border:1px solid var(--border);
+      border-radius:999px; padding:3px;
+    }
+    .lang-toggle button {
+      background:none; border:none; cursor:pointer;
+      border-radius:999px; padding:.2rem .45rem;
+      font-size:1rem; line-height:1;
+      opacity:.35; transition:opacity .2s, background .2s;
+    }
+    .lang-toggle button.active { background:var(--gold-dim); opacity:1; }
     header img {
       width:150px; height:150px; object-fit:contain;
       border-radius:12px; margin-bottom:.8rem;
@@ -287,6 +301,10 @@
 <body>
 
 <header>
+  <div class="lang-toggle">
+    <button id="btn-pt" onclick="setLang('pt')" title="Português">🇧🇷</button>
+    <button id="btn-es" onclick="setLang('es')" title="Español">🇵🇾</button>
+  </div>
   <img src="/logo.jpeg" alt="Soul Black" onerror="this.style.display='none'">
   <h1>Soul Black</h1>
   <p>Barbearia &nbsp;·&nbsp; Agenda Online</p>
@@ -329,8 +347,59 @@
 <script>
 const PAD = n => String(n).padStart(2,'0');
 const FMT = d => `${d.getFullYear()}-${PAD(d.getMonth()+1)}-${PAD(d.getDate())}`;
-const DAYS  = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-const MONTHS= ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+const LANG = {
+  pt: {
+    days:   ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'],
+    months: ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'],
+    nav: { dia:'Dia', semana:'Semana', mes:'Mês', proximo:'Próximo' },
+    loading:'Carregando...', noData:'Sem dados.', error:'Erro ao carregar. Tente novamente.',
+    updatedAt:'atualizado às',
+    dayPast:'Dia passado', available: n=>`${n} disponível${n!==1?'is':''}`,
+    pastBanner:'Horários encerrados para este dia', noSlots:'Sem horários disponíveis',
+    disponivel:'Disponível', ocupado:'Ocupado', bloqueado:'Bloqueado', encerrado:'Encerrado',
+    fechado:'Fechado', libres: n=>`${n} livre${n!==1?'s':''}`, lotado:'Lotado',
+    modalWarning:'⚡ Horário próximo — sujeito à aprovação do barbeiro',
+    nomePh:'Seu nome', phonePh:'WhatsApp (ex: 21999991234)',
+    confirmBtn:'Confirmar agendamento', solicitarBtn:'Solicitar aprovação',
+    nameErr:'Informe seu nome.', phoneErr:'Número inválido.', waiting:'Aguarde...',
+    pendente:'⏳ Solicitação enviada! O barbeiro confirmará em breve.',
+    confirmado:'✅ Agendado! Você receberá lembretes no WhatsApp.',
+    connErr:'Erro de conexão. Tente novamente.', agendar:'Agendar',
+  },
+  es: {
+    days:   ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'],
+    months: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
+    nav: { dia:'Día', semana:'Semana', mes:'Mes', proximo:'Próximo' },
+    loading:'Cargando...', noData:'Sin datos.', error:'Error al cargar. Intente de nuevo.',
+    updatedAt:'actualizado a las',
+    dayPast:'Día pasado', available: n=>`${n} disponible${n!==1?'s':''}`,
+    pastBanner:'Horarios cerrados para este día', noSlots:'Sin horarios disponibles',
+    disponivel:'Disponible', ocupado:'Ocupado', bloqueado:'Bloqueado', encerrado:'Cerrado',
+    fechado:'Cerrado', libres: n=>`${n} libre${n!==1?'s':''}`, lotado:'Lleno',
+    modalWarning:'⚡ Horario próximo — sujeto a aprobación del barbero',
+    nomePh:'Tu nombre', phonePh:'WhatsApp (ej: 0994 123 456)',
+    confirmBtn:'Confirmar turno', solicitarBtn:'Solicitar aprobación',
+    nameErr:'Ingresá tu nombre.', phoneErr:'Número inválido.', waiting:'Espera...',
+    pendente:'⏳ ¡Solicitud enviada! El barbero confirmará en breve.',
+    confirmado:'✅ ¡Turno confirmado! Recibirás recordatorios por WhatsApp.',
+    connErr:'Error de conexión. Intentá de nuevo.', agendar:'Agendar',
+  }
+};
+
+let lang = localStorage.getItem('sb-lang') || 'es';
+const t = () => LANG[lang];
+
+function setLang(l) {
+  lang = l;
+  localStorage.setItem('sb-lang', l);
+  document.getElementById('btn-pt').classList.toggle('active', l==='pt');
+  document.getElementById('btn-es').classList.toggle('active', l==='es');
+  document.querySelectorAll('nav button').forEach(b => { b.textContent = t().nav[b.dataset.view]; });
+  document.getElementById('book-nome').placeholder = t().nomePh;
+  document.getElementById('book-phone').placeholder = t().phonePh;
+  load();
+}
 
 let view = 'dia';
 let navDate = new Date();
@@ -341,7 +410,7 @@ function markUpdated() {
   const el = document.getElementById('last-update');
   if (!el) return;
   const now = new Date();
-  el.textContent = `actualizado a las ${PAD(now.getHours())}:${PAD(now.getMinutes())}`;
+  el.textContent = `${t().updatedAt} ${PAD(now.getHours())}:${PAD(now.getMinutes())}`;
   el.classList.add('fresh');
   setTimeout(() => el.classList.remove('fresh'), 1500);
 }
@@ -369,7 +438,7 @@ function setView(v) {
 
 async function load() {
   document.getElementById('content').innerHTML =
-    '<div class="loading"><div class="spinner"></div><br>Cargando...</div>';
+    `<div class="loading"><div class="spinner"></div><br>${t().loading}</div>`;
   try {
     const qs = view === 'dia' ? `&date=${FMT(navDate)}` : '';
     const r = await fetch(`/api/slots?view=${view}${qs}`);
@@ -378,7 +447,7 @@ async function load() {
     markUpdated();
   } catch(e) {
     document.getElementById('content').innerHTML =
-      '<div class="loading">Error al cargar. Intente de nuevo.</div>';
+      `<div class="loading">${t().error}</div>`;
   }
 }
 
@@ -391,7 +460,7 @@ function render(data) {
 /* ── DIA ── */
 function renderDay(data) {
   const day = data.dates[0];
-  if (!day) { document.getElementById('content').innerHTML = '<div class="loading">Sin datos.</div>'; return; }
+  if (!day) { document.getElementById('content').innerHTML = `<div class="loading">${t().noData}</div>`; return; }
 
   const todayStr = FMT(new Date());
   const isPast = day.date < todayStr;
@@ -408,8 +477,8 @@ function renderDay(data) {
 
   const livre = isPast ? 0 : visible.filter(s => s.status === 'livre').length;
   const [,mm,dd] = day.date.split('-');
-  const dayName = DAYS[new Date(day.date+'T12:00:00').getDay()];
-  const subtitle = isPast ? 'Día pasado' : `${livre} disponible${livre===1?'':'s'}`;
+  const dayName = t().days[new Date(day.date+'T12:00:00').getDay()];
+  const subtitle = isPast ? t().dayPast : t().available(livre);
 
   let html = `
     <div class="day-nav">
@@ -423,11 +492,11 @@ function renderDay(data) {
 
   if (!isPast) {
     html += `<div class="legend">
-      <div class="legend-item"><div class="ldot" style="background:var(--green)"></div>Disponible</div>
-      <div class="legend-item"><div class="ldot" style="background:var(--red)"></div>Ocupado</div>
+      <div class="legend-item"><div class="ldot" style="background:var(--green)"></div>${t().disponivel}</div>
+      <div class="legend-item"><div class="ldot" style="background:var(--red)"></div>${t().ocupado}</div>
     </div>`;
   } else {
-    html += `<div class="past-banner">Horarios cerrados para este día</div>`;
+    html += `<div class="past-banner">${t().pastBanner}</div>`;
   }
 
   html += `<div class="slots-list">`;
@@ -436,11 +505,11 @@ function renderDay(data) {
   const slotsToShow = (!visible.length && isPast) ? DEFAULT_HOURS.map(h => ({ horario: h, status: 'livre' })) : visible;
 
   if (!slotsToShow.length) {
-    html += `<div class="empty-msg"><div class="eico">✂</div><p>Sin horarios disponibles</p></div>`;
+    html += `<div class="empty-msg"><div class="eico">✂</div><p>${t().noSlots}</p></div>`;
   } else {
     for (const s of slotsToShow) {
       const cls = isPast ? 'passado' : (s.status === 'agendado' ? 'ocupado' : s.status);
-      const lbl = isPast ? 'Cerrado' : (s.status === 'livre' ? 'Disponible' : s.status === 'bloqueado' ? 'Bloqueado' : 'Ocupado');
+      const lbl = isPast ? t().encerrado : (s.status === 'livre' ? t().disponivel : s.status === 'bloqueado' ? t().bloqueado : t().ocupado);
       const click = (cls === 'livre') ? `onclick="openBooking('${day.date}','${s.horario}')"` : '';
       html += `<div class="slot-row ${cls}" ${click}><div class="sdot"></div><div class="stime">${s.horario}</div><div class="slabel">${lbl}</div></div>`;
     }
@@ -472,15 +541,15 @@ function renderWeek(data) {
 
   let html = `
     <div class="legend" style="margin-bottom:1.2rem">
-      <div class="legend-item"><div class="ldot" style="background:var(--green)"></div>Disponible</div>
-      <div class="legend-item"><div class="ldot" style="background:var(--red)"></div>Ocupado</div>
+      <div class="legend-item"><div class="ldot" style="background:var(--green)"></div>${t().disponivel}</div>
+      <div class="legend-item"><div class="ldot" style="background:var(--red)"></div>${t().ocupado}</div>
     </div>
     <div class="week-wrap"><div class="week-grid">`;
 
   for (const day of data.dates) {
     const isPastDay = day.date < todayStr;
     const [,mm,dd] = day.date.split('-');
-    const dn = DAYS[new Date(day.date+'T12:00:00').getDay()];
+    const dn = t().days[new Date(day.date+'T12:00:00').getDay()];
     html += `<div class="week-col">
       <div class="week-col-head${isPastDay ? ' past' : ''}" onclick="gotoDay('${day.date}')"><div class="wdn">${dn}</div><div class="wdd">${dd}</div></div>
       <div class="week-slots">`;
@@ -508,7 +577,7 @@ function renderWeek(data) {
 
 /* ── MÊS ── */
 function renderMonth(data) {
-  if (!data.dates.length) { document.getElementById('content').innerHTML = '<div class="loading">Sin datos.</div>'; return; }
+  if (!data.dates.length) { document.getElementById('content').innerHTML = `<div class="loading">${t().noData}</div>`; return; }
 
   const fd = new Date(data.dates[0].date+'T12:00:00');
   const year = fd.getFullYear(), month = fd.getMonth();
@@ -519,8 +588,8 @@ function renderMonth(data) {
   const daysInMonth = new Date(year, month+1, 0).getDate();
   const todayStr = FMT(new Date());
 
-  let html = `<div class="month-title">${MONTHS[month]} ${year}</div>
-    <div class="cal-head">${DAYS.map((d,i)=>`<div class="cal-wn${i===0?' sun':''}">${d}</div>`).join('')}</div>
+  let html = `<div class="month-title">${t().months[month]} ${year}</div>
+    <div class="cal-head">${t().days.map((d,i)=>`<div class="cal-wn${i===0?' sun':''}">${d}</div>`).join('')}</div>
     <div class="cal-grid">`;
 
   const prevMonthLastDay = new Date(year, month, 0).getDate();
@@ -561,11 +630,11 @@ function renderMonth(data) {
 
     html += `<div class="${cls}" ${click}>
       <div class="cdn">${d}</div>
-      ${isSun ? `<div class="sun-label">Cerrado</div>` : ''}
+      ${isSun ? `<div class="sun-label">${t().fechado}</div>` : ''}
       ${showBar ? `
         <div class="cbar" style="background:linear-gradient(to right,${barColor} ${barW}%,#252525 ${barW}%)"></div>
-        ${!isPast && livre > 0 ? `<div class="ccount">${livre} libre${livre !== 1 ? 's' : ''}</div>` : ''}
-        ${!isPast && livre === 0 && total > 0 ? `<div class="ccount" style="color:var(--red)">Lleno</div>` : ''}
+        ${!isPast && livre > 0 ? `<div class="ccount">${t().libres(livre)}</div>` : ''}
+        ${!isPast && livre === 0 && total > 0 ? `<div class="ccount" style="color:var(--red)">${t().lotado}</div>` : ''}
       ` : ''}
     </div>`;
   }
@@ -597,8 +666,9 @@ function openBooking(date, horario) {
   const urgent = diffMin < 60;
 
   document.getElementById('modal-sub').textContent = `${dd}/${mm} às ${horario}`;
+  document.getElementById('modal-warning').textContent = t().modalWarning;
   document.getElementById('modal-warning').style.display = urgent ? 'block' : 'none';
-  document.getElementById('book-btn').textContent = urgent ? 'Solicitar aprobación' : 'Confirmar turno';
+  document.getElementById('book-btn').textContent = urgent ? t().solicitarBtn : t().confirmBtn;
   document.getElementById('book-nome').value = '';
   document.getElementById('book-phone').value = '';
   document.getElementById('book-msg').textContent = '';
@@ -624,12 +694,12 @@ async function submitBooking() {
   const msg = document.getElementById('book-msg');
   const btn = document.getElementById('book-btn');
 
-  if (!nome || nome.length < 2) { msg.textContent = 'Ingresá tu nombre.'; msg.className = 'modal-msg err'; return; }
+  if (!nome || nome.length < 2) { msg.textContent = t().nameErr; msg.className = 'modal-msg err'; return; }
   const digits = telefone.replace(/\D/g, '');
-  if (digits.length < 9) { msg.textContent = 'Número de WhatsApp inválido.'; msg.className = 'modal-msg err'; return; }
+  if (digits.length < 9) { msg.textContent = t().phoneErr; msg.className = 'modal-msg err'; return; }
 
   btn.disabled = true;
-  msg.textContent = 'Aguarde...'; msg.className = 'modal-msg';
+  msg.textContent = t().waiting; msg.className = 'modal-msg';
 
   try {
     const r = await fetch('/api/book', {
@@ -643,18 +713,19 @@ async function submitBooking() {
       btn.disabled = false; return;
     }
     if (data.tipo === 'pendente') {
-      msg.textContent = '⏳ ¡Solicitud enviada! El barbero confirmará en breve.'; msg.className = 'modal-msg pend';
+      msg.textContent = t().pendente; msg.className = 'modal-msg pend';
     } else {
-      msg.textContent = '✅ ¡Turno confirmado! Recibirás recordatorios por WhatsApp.'; msg.className = 'modal-msg ok';
+      msg.textContent = t().confirmado; msg.className = 'modal-msg ok';
     }
     setTimeout(() => { closeModal(); load(); }, 2500);
   } catch(e) {
-    msg.textContent = 'Error de conexión. Intentá de nuevo.'; msg.className = 'modal-msg err';
+    msg.textContent = t().connErr; msg.className = 'modal-msg err';
     btn.disabled = false;
   }
 }
 
-load();
+// Inicializa idioma
+setLang(lang);
 resetPoll();
 </script>
 </body>
