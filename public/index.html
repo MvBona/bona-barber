@@ -299,8 +299,9 @@
       .cal-wn { font-size:.52rem; padding:.25rem 0; }
       .month-title { font-size:.95rem; }
 
-      /* Semana: esconde slots indisponíveis no mobile */
+      /* Semana: esconde slots indisponíveis no mobile, exceto hoje */
       .wslot:not(.livre) { display:none; }
+      .week-col.is-today .wslot { display:block; }
 
       /* Nav */
       nav button { font-size:.6rem; padding:.8rem .2rem; }
@@ -576,15 +577,17 @@ function renderWeek(data) {
 
   for (const day of data.dates) {
     const isPastDay = day.date < todayStr;
+    const isToday = day.date === todayStr;
     const [,mm,dd] = day.date.split('-');
     const dn = t().days[new Date(day.date+'T12:00:00').getDay()];
-    html += `<div class="week-col">
-      <div class="week-col-head${isPastDay ? ' past' : ''}" onclick="gotoDay('${day.date}')"><div class="wdn">${dn}</div><div class="wdd">${dd}</div></div>
-      <div class="week-slots">`;
 
     const weekSlots = (!day.slots.length && isPastDay)
       ? ['10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'].map(h => ({ horario: h, status: 'livre' }))
       : day.slots;
+
+    html += `<div class="week-col${isToday ? ' is-today' : ''}">
+      <div class="week-col-head${isPastDay ? ' past' : ''}" onclick="gotoDay('${day.date}')"><div class="wdn">${dn}</div><div class="wdd">${dd}</div></div>
+      <div class="week-slots">`;
 
     if (!weekSlots.length) {
       html += `<div class="wslot passado" style="font-size:.65rem;color:#2a2a2a">—</div>`;
