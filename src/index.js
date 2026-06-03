@@ -958,6 +958,53 @@ async function processAccumulatedMessages(phone, name) {
   }
 }
 
+app.post("/api/book", async (req, res) => {
+  const { date, horario, nome, telefone } = req.body;
+  if (!date || !horario || !nome || !telefone) {
+    return res.status(400).json({ error: "Preencha todos os campos." });
+  }
+
+  const digits = String(telefone).replace(/\D/g, "");
+  const phone = digits.length <= 11 && !digits.startsWith("55") ? "55" + digits : digits;
+  if (phone.length < 10 || phone.length > 13) {
+    return res.status(400).json({ error: "Número de WhatsApp inválido." });
+  }
+
+  const slot = await getSlotInfo(date, horario);
+  if (!slot || slot.status !== "livre") {
+    return res.status(409).json({ error: "Esse horário acabou de ser ocupado. Escolha outro." });
+  }
+
+  const already = await countClientAppointmentsOnDay(phone, date);
+  if (already > 0) {
+    return res.status(409).json({ error: "Você já tem um agendamento neste dia." });
+  }
+
+  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  const [y, m, d] = date.split("-").map(Number);
+  const [h, min] = horario.split(":").map(Number);
+  const slotTime = new Date(y, m - 1, d, h, min);
+  const diffMin = (slotTime - now) / (1000 * 60);
+  const [, mm, dd] = date.split("-");
+
+  if (diffMin < 60) {
+    await notifyBarber(
+      `⚡ *Pedido urgente (site)*\n👤 ${nome}\n📞 ${phone}\n📅 ${dd}/${mm} às ${horario}\n\nPara confirmar: *agenda ${nome} ${phone} dia ${dd}/${mm} ${horario}*`
+    );
+    return res.json({ ok: true, tipo: "pendente" });
+  }
+
+  const booked = await bookSlot(date, horario, nome, phone);
+  if (!booked) {
+    return res.status(409).json({ error: "Esse horário acabou de ser ocupado. Escolha outro." });
+  }
+
+  await notifyBarber(
+    `✅ *Novo agendamento (site)*\n👤 ${nome}\n📞 ${phone}\n📅 ${dd}/${mm} às ${horario}`
+  );
+  return res.json({ ok: true, tipo: "confirmado" });
+});
+
 app.get("/api/slots", async (req, res) => {
   const { view = "dia", date } = req.query;
   const PAD = (n) => String(n).padStart(2, "0");
