@@ -15,8 +15,7 @@ function getNextTwoMonthsDates() {
     new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
   );
 
-  const start = new Date(today);
-  start.setDate(today.getDate() + 1);
+  const start = new Date(today.getFullYear(), today.getMonth(), 1);
 
   const end = new Date(today);
   end.setMonth(today.getMonth() + 2);
@@ -331,18 +330,7 @@ async function resetSlots(scope = "mes") {
     } catch (e) {}
   }
 
-  // 3. Recria slots do dia atual
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  try {
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${currentSheetName}!A2`,
-      valueInputOption: "RAW",
-      requestBody: { values: generateSlots(todayStr) },
-    });
-  } catch (e) {}
-
-  // 4. Recria slots de amanhã em diante
+  // 3. Recria todos os slots (dia 1 do mês atual em diante)
   await generateWeeklySlots();
 
   return { total: apagados.length, apagados };

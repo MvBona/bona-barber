@@ -17,6 +17,7 @@ require("dotenv").config();
 
 console.log("carregando express...");
 const express = require("express");
+const path = require("path");
 const schedule = require("node-cron");
 const { tr, clientLanguages } = require("./i18n");
 
@@ -33,6 +34,7 @@ const {
   countClientAppointmentsOnDay,
   getSlotInfo,
   getDaySchedule,
+  getSlotsForDates,
 } = require("./sheets");
 
 console.log("carregando ai...");
@@ -56,6 +58,7 @@ const {
 console.log("todos os módulos carregados!");
 const app = express();
 app.use(express.json());
+app.use(express.static(path.join(__dirname, "..", "public")));
 
 const ZAPI_INSTANCE_ID = process.env.ZAPI_INSTANCE_ID;
 const ZAPI_TOKEN = process.env.ZAPI_TOKEN;
@@ -869,8 +872,45 @@ async function processAccumulatedMessages(phone, name) {
   }
 }
 
-app.get("/", (req, res) => {
-  res.send("Bot da barbearia rodando!");
+app.get("/api/slots", async (req, res) => {
+  const { view = "dia", date } = req.query;
+  const PAD = (n) => String(n).padStart(2, "0");
+  const FMT = (d) => `${d.getFullYear()}-${PAD(d.getMonth() + 1)}-${PAD(d.getDate())}`;
+
+  const now = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
+  );
+
+  let dates = [];
+
+  if (view === "dia") {
+    const d = date ? new Date(date + "T12:00:00") : now;
+    if (d.getDay() !== 0) dates = [FMT(d)];
+  } else if (view === "semana") {
+    const dow = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      dates.push(FMT(d));
+    }
+  } else if (view === "mes" || view === "proximo") {
+    const offset = view === "proximo" ? 1 : 0;
+    const first = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+    const last = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0);
+    for (let d = new Date(first); d <= last; d.setDate(d.getDate() + 1)) {
+      if (d.getDay() !== 0) dates.push(FMT(new Date(d)));
+    }
+  }
+
+  try {
+    const data = await getSlotsForDates(dates);
+    res.json(data);
+  } catch (e) {
+    console.error("Erro /api/slots:", e.message);
+    res.status(500).json({ error: "Erro ao buscar agenda" });
+  }
 });
 
 app.post("/webhook", async (req, res) => {
@@ -952,4 +992,7 @@ schedule.schedule(
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
+  generateWeeklySlots()
+    .then(() => console.log("Horários verificados no startup!"))
+    .catch((err) => console.error("Erro ao gerar horários no startup:", err.message));
 });

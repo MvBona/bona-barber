@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Soul Black Barbearia</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #0a0a0a;
+      --bg2:      #141414;
+      --bg3:      #1e1e1e;
+      --gold:     #c9a447;
+      --gold-dim: rgba(201,164,71,0.12);
+      --text:     #f0ece0;
+      --muted:    #77736a;
+      --green:    #4caf7d;
+      --red:      #e05555;
+      --gray:     #444;
+      --border:   #252525;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; }
+
+    /* ── HEADER ── */
+    header {
+      text-align:center;
+      padding:2.5rem 1rem 2rem;
+      background:linear-gradient(180deg,#111 0%,var(--bg) 100%);
+      border-bottom:1px solid var(--border);
+    }
+    header img {
+      width:130px; height:130px; object-fit:contain;
+      border-radius:12px; margin-bottom:.8rem;
+    }
+    header h1 {
+      font-family:'Cinzel',serif; font-size:2rem; font-weight:900;
+      color:var(--gold); letter-spacing:.15em; text-transform:uppercase;
+    }
+    header p {
+      color:var(--muted); font-size:.7rem; letter-spacing:.3em;
+      text-transform:uppercase; margin-top:.3rem;
+    }
+    .gold-line {
+      width:60px; height:2px; background:var(--gold);
+      margin:.8rem auto 0; border-radius:2px; opacity:.6;
+    }
+
+    /* ── NAV ── */
+    nav {
+      display:flex; background:var(--bg2);
+      border-bottom:1px solid var(--border);
+      overflow-x:auto; scrollbar-width:none;
+    }
+    nav::-webkit-scrollbar { display:none; }
+    nav button {
+      flex:1; min-width:75px; padding:.9rem .4rem;
+      background:none; border:none; border-bottom:2px solid transparent;
+      color:var(--muted); font-family:'Cinzel',serif; font-size:.7rem;
+      font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+      cursor:pointer; transition:all .2s; white-space:nowrap;
+    }
+    nav button.active { color:var(--gold); border-bottom-color:var(--gold); background:var(--gold-dim); }
+    nav button:hover:not(.active) { color:var(--text); background:rgba(255,255,255,.03); }
+
+    /* ── MAIN ── */
+    main { max-width:860px; margin:0 auto; padding:1.8rem 1rem 3rem; }
+    .loading { text-align:center; padding:4rem 1rem; color:var(--muted); font-size:.85rem; letter-spacing:.1em; }
+    .spinner { display:inline-block; width:28px; height:28px; border:2px solid var(--border); border-top-color:var(--gold); border-radius:50%; animation:spin .8s linear infinite; margin-bottom:1rem; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* ── LEGEND ── */
+    .legend {
+      display:flex; gap:1.5rem; justify-content:center;
+      margin-bottom:1.5rem; flex-wrap:wrap;
+    }
+    .legend-item { display:flex; align-items:center; gap:.4rem; font-size:.7rem; color:var(--muted); letter-spacing:.06em; text-transform:uppercase; }
+    .ldot { width:8px; height:8px; border-radius:50%; }
+
+    /* ── DAY VIEW ── */
+    .day-nav {
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom:1.5rem;
+    }
+    .day-nav button {
+      width:42px; height:42px; background:var(--bg3); border:1px solid var(--border);
+      color:var(--gold); border-radius:50%; font-size:1.3rem; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; transition:all .2s;
+    }
+    .day-nav button:hover { background:var(--gold-dim); border-color:var(--gold); }
+    .day-title { text-align:center; }
+    .day-title .dt-main { font-family:'Cinzel',serif; font-size:1.4rem; font-weight:700; }
+    .day-title .dt-sub { color:var(--muted); font-size:.75rem; letter-spacing:.1em; text-transform:uppercase; margin-top:.2rem; }
+
+    .slots-list { display:flex; flex-direction:column; gap:.5rem; }
+    .slot-row {
+      display:flex; align-items:center; gap:1rem;
+      padding:.95rem 1.2rem; background:var(--bg2);
+      border:1px solid var(--border); border-left:3px solid transparent;
+      border-radius:8px; transition:all .2s;
+    }
+    .slot-row.livre     { border-left-color:var(--green); }
+    .slot-row.ocupado   { border-left-color:var(--red);  opacity:.45; }
+    .slot-row.bloqueado { border-left-color:var(--gray); opacity:.35; }
+    .slot-row.passado   { border-left-color:#2a2a2a; opacity:.28; }
+    .sdot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+    .slot-row.livre     .sdot { background:var(--green); }
+    .slot-row.ocupado   .sdot { background:var(--red); }
+    .slot-row.bloqueado .sdot { background:var(--gray); }
+    .slot-row.passado   .sdot { background:#333; }
+    .stime { font-family:'Cinzel',serif; font-size:1.05rem; font-weight:600; }
+    .slabel { font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; }
+    .slot-row.livre     .slabel { color:var(--green); }
+    .slot-row.ocupado   .slabel { color:var(--red); }
+    .slot-row.bloqueado .slabel { color:var(--gray); }
+    .slot-row.passado   .slabel { color:#444; }
+
+    .past-banner {
+      text-align:center; padding:.55rem 1rem; margin-bottom:1.2rem;
+      color:var(--muted); font-size:.65rem; letter-spacing:.18em; text-transform:uppercase;
+      border:1px solid var(--border); border-radius:6px; background:var(--bg2);
+    }
+    .empty-msg { text-align:center; padding:3rem 1rem; color:var(--muted); }
+    .empty-msg .eico { font-size:2.5rem; margin-bottom:.8rem; opacity:.4; }
+
+    /* ── WEEK VIEW ── */
+    .week-wrap { overflow-x:auto; padding-bottom:.5rem; }
+    .week-grid { display:grid; grid-template-columns:repeat(6,minmax(100px,1fr)); gap:6px; min-width:560px; }
+    .week-col {}
+    .week-col-head {
+      text-align:center; padding:.6rem .2rem; background:var(--bg3);
+      border:1px solid var(--border); border-radius:6px 6px 0 0; border-bottom:none;
+    }
+    .wdn { font-family:'Cinzel',serif; font-size:.6rem; color:var(--gold); letter-spacing:.08em; text-transform:uppercase; }
+    .wdd { font-size:1.1rem; font-weight:600; }
+    .week-slots { border:1px solid var(--border); border-radius:0 0 6px 6px; overflow:hidden; }
+    .wslot { padding:.45rem .3rem; text-align:center; font-size:.78rem; font-weight:500; border-bottom:1px solid var(--border); }
+    .wslot:last-child { border-bottom:none; }
+    .wslot.livre    { background:rgba(76,175,125,.1);  color:var(--green); }
+    .wslot.ocupado  { background:rgba(224,85,85,.07);  color:rgba(224,85,85,.45); text-decoration:line-through; }
+    .wslot.bloqueado { background:rgba(68,68,68,.1);   color:var(--gray); }
+    .wslot.passado  { background:transparent; color:#2a2a2a; }
+    .week-col-head.past { opacity:.3; }
+
+    /* ── MONTH VIEW ── */
+    .month-title {
+      font-family:'Cinzel',serif; text-align:center; font-size:1.1rem;
+      font-weight:700; color:var(--gold); letter-spacing:.12em; text-transform:uppercase;
+      margin-bottom:1rem;
+    }
+    .cal-head { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; margin-bottom:3px; }
+    .cal-wn { text-align:center; font-family:'Cinzel',serif; font-size:.6rem; color:var(--gold); letter-spacing:.08em; padding:.3rem 0; }
+    .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+    .cal-cell {
+      aspect-ratio:1; background:var(--bg2); border:1px solid var(--border);
+      border-radius:6px; display:flex; flex-direction:column; align-items:center;
+      justify-content:center; cursor:pointer; transition:all .15s; padding:3px; position:relative;
+    }
+    .cal-cell.empty, .cal-cell.sunday { background:transparent; border-color:transparent; cursor:default; }
+    .cal-cell.past { opacity:.28; }
+    .cal-cell:not(.empty):not(.sunday):hover { border-color:var(--gold); background:var(--gold-dim); }
+    .cal-cell.today { border-color:var(--gold) !important; }
+    .cdn { font-size:.82rem; font-weight:600; }
+    .cbar { width:75%; height:3px; border-radius:2px; margin-top:3px; }
+    .ccount { font-size:.55rem; color:var(--muted); margin-top:2px; }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align:center; padding:1.8rem 1rem;
+      color:var(--muted); font-size:.7rem; letter-spacing:.12em;
+      border-top:1px solid var(--border);
+    }
+    footer span { color:var(--gold); }
+
+    @media(max-width:480px) {
+      header h1 { font-size:1.5rem; }
+      .day-title .dt-main { font-size:1.2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <img src="/logo.jpeg" alt="Soul Black" onerror="this.style.display='none'">
+  <h1>Soul Black</h1>
+  <p>Barbearia &nbsp;·&nbsp; Agenda Online</p>
+  <div class="gold-line"></div>
+</header>
+
+<nav>
+  <button class="active" data-view="dia"    onclick="setView('dia')">Dia</button>
+  <button              data-view="semana" onclick="setView('semana')">Semana</button>
+  <button              data-view="mes"    onclick="setView('mes')">Mês</button>
+  <button              data-view="proximo" onclick="setView('proximo')">Próximo</button>
+</nav>
+
+<main>
+  <div id="content">
+    <div class="loading"><div class="spinner"></div><br>Carregando...</div>
+  </div>
+</main>
+
+<footer>Agenda — <span>Soul Black Barbearia</span></footer>
+
+<script>
+const PAD = n => String(n).padStart(2,'0');
+const FMT = d => `${d.getFullYear()}-${PAD(d.getMonth()+1)}-${PAD(d.getDate())}`;
+const DAYS  = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const MONTHS= ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+let view = 'dia';
+let navDate = new Date();
+
+function setView(v) {
+  view = v;
+  navDate = new Date();
+  document.querySelectorAll('nav button').forEach(b =>
+    b.classList.toggle('active', b.dataset.view === v)
+  );
+  load();
+}
+
+async function load() {
+  document.getElementById('content').innerHTML =
+    '<div class="loading"><div class="spinner"></div><br>Carregando...</div>';
+  try {
+    const qs = view === 'dia' ? `&date=${FMT(navDate)}` : '';
+    const r = await fetch(`/api/slots?view=${view}${qs}`);
+    const data = await r.json();
+    render(data);
+  } catch(e) {
+    document.getElementById('content').innerHTML =
+      '<div class="loading">Erro ao carregar. Tente novamente.</div>';
+  }
+}
+
+function render(data) {
+  if (view === 'dia') renderDay(data);
+  else if (view === 'semana') renderWeek(data);
+  else renderMonth(data);
+}
+
+/* ── DIA ── */
+function renderDay(data) {
+  const day = data.dates[0];
+  if (!day) { document.getElementById('content').innerHTML = '<div class="loading">Sem dados.</div>'; return; }
+
+  const todayStr = FMT(new Date());
+  const isPast = day.date < todayStr;
+  const isToday = day.date === todayStr;
+
+  // Para hoje: filtra só horários futuros. Para outros dias: mostra tudo.
+  const visible = isToday
+    ? day.slots.filter(s => {
+        const [h,m] = s.horario.split(':').map(Number);
+        const t = new Date(); t.setHours(h,m,0,0);
+        return t > new Date();
+      })
+    : day.slots;
+
+  const livre = isPast ? 0 : visible.filter(s => s.status === 'livre').length;
+  const [,mm,dd] = day.date.split('-');
+  const dayName = DAYS[new Date(day.date+'T12:00:00').getDay()];
+  const subtitle = isPast ? 'Dia passado' : `${livre} disponív${livre===1?'el':'eis'}`;
+
+  let html = `
+    <div class="day-nav">
+      <button onclick="shiftDay(-1)">‹</button>
+      <div class="day-title">
+        <div class="dt-main">${dayName}, ${dd}/${mm}</div>
+        <div class="dt-sub">${subtitle}</div>
+      </div>
+      <button onclick="shiftDay(1)">›</button>
+    </div>`;
+
+  if (!isPast) {
+    html += `<div class="legend">
+      <div class="legend-item"><div class="ldot" style="background:var(--green)"></div>Disponível</div>
+      <div class="legend-item"><div class="ldot" style="background:var(--red)"></div>Ocupado</div>
+    </div>`;
+  } else {
+    html += `<div class="past-banner">Horários encerrados para este dia</div>`;
+  }
+
+  html += `<div class="slots-list">`;
+
+  const DEFAULT_HOURS = ['10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'];
+  const slotsToShow = (!visible.length && isPast) ? DEFAULT_HOURS.map(h => ({ horario: h, status: 'livre' })) : visible;
+
+  if (!slotsToShow.length) {
+    html += `<div class="empty-msg"><div class="eico">✂</div><p>Sem horários disponíveis</p></div>`;
+  } else {
+    for (const s of slotsToShow) {
+      const cls = isPast ? 'passado' : (s.status === 'agendado' ? 'ocupado' : s.status);
+      const lbl = isPast ? 'Encerrado' : (s.status === 'livre' ? 'Disponível' : s.status === 'bloqueado' ? 'Bloqueado' : 'Ocupado');
+      html += `<div class="slot-row ${cls}"><div class="sdot"></div><div class="stime">${s.horario}</div><div class="slabel">${lbl}</div></div>`;
+    }
+  }
+
+  html += '</div>';
+  document.getElementById('content').innerHTML = html;
+}
+
+function shiftDay(d) {
+  navDate = new Date(navDate);
+  navDate.setDate(navDate.getDate() + d);
+  if (navDate.getDay() === 0) navDate.setDate(navDate.getDate() + (d > 0 ? 1 : -1));
+  load();
+}
+
+/* ── SEMANA ── */
+function renderWeek(data) {
+  const todayStr = FMT(new Date());
+
+  let html = `
+    <div class="legend" style="margin-bottom:1.2rem">
+      <div class="legend-item"><div class="ldot" style="background:var(--green)"></div>Disponível</div>
+      <div class="legend-item"><div class="ldot" style="background:var(--red)"></div>Ocupado</div>
+    </div>
+    <div class="week-wrap"><div class="week-grid">`;
+
+  for (const day of data.dates) {
+    const isPast = day.date < todayStr;
+    const [,mm,dd] = day.date.split('-');
+    const dn = DAYS[new Date(day.date+'T12:00:00').getDay()];
+    html += `<div class="week-col">
+      <div class="week-col-head${isPast ? ' past' : ''}"><div class="wdn">${dn}</div><div class="wdd">${dd}</div></div>
+      <div class="week-slots">`;
+    const weekSlots = (!day.slots.length && isPast)
+      ? ['10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'].map(h => ({ horario: h, status: 'livre' }))
+      : day.slots;
+
+    if (!weekSlots.length) {
+      html += `<div class="wslot passado" style="font-size:.65rem;color:#2a2a2a">—</div>`;
+    } else {
+      for (const s of weekSlots) {
+        const cls = isPast ? 'passado' : (s.status === 'agendado' ? 'ocupado' : s.status);
+        html += `<div class="wslot ${cls}">${s.horario}</div>`;
+      }
+    }
+    html += '</div></div>';
+  }
+
+  html += '</div></div>';
+  document.getElementById('content').innerHTML = html;
+}
+
+/* ── MÊS ── */
+function renderMonth(data) {
+  if (!data.dates.length) { document.getElementById('content').innerHTML = '<div class="loading">Sem dados.</div>'; return; }
+
+  const fd = new Date(data.dates[0].date+'T12:00:00');
+  const year = fd.getFullYear(), month = fd.getMonth();
+  const slotMap = {};
+  for (const d of data.dates) slotMap[d.date] = d.slots;
+
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const todayStr = FMT(new Date());
+
+  let html = `<div class="month-title">${MONTHS[month]} ${year}</div>
+    <div class="cal-head">${DAYS.map(d=>`<div class="cal-wn">${d}</div>`).join('')}</div>
+    <div class="cal-grid">`;
+
+  for (let i = 0; i < firstDow; i++) html += '<div class="cal-cell empty"></div>';
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${year}-${PAD(month+1)}-${PAD(d)}`;
+    const dow = new Date(ds+'T12:00:00').getDay();
+    const isSun = dow === 0;
+    const isPast = ds < todayStr;
+    const isToday = ds === todayStr;
+    const slots = slotMap[ds] || [];
+    const livre = slots.filter(s => s.status === 'livre').length;
+    const total = slots.length;
+
+    let barColor = '#333', barW = 0;
+    if (!isSun && isPast) {
+      barColor = total > 0 ? '#2e2e2e' : '#222';
+      barW = 100;
+    } else if (!isSun && !isPast && total > 0) {
+      const pct = livre / total;
+      barColor = pct > .5 ? '#4caf7d' : pct > .2 ? '#c9a447' : '#e05555';
+      barW = Math.round(pct * 100);
+    }
+
+    const cls = [
+      'cal-cell',
+      isSun ? 'sunday' : '',
+      isPast ? 'past' : '',
+      isToday ? 'today' : ''
+    ].filter(Boolean).join(' ');
+
+    const click = !isSun ? `onclick="gotoDay('${ds}')"` : '';
+    const showBar = !isSun && (isPast || total > 0);
+
+    html += `<div class="${cls}" ${click}>
+      <div class="cdn">${d}</div>
+      ${showBar ? `
+        <div class="cbar" style="background:linear-gradient(to right,${barColor} ${barW}%,#252525 ${barW}%)"></div>
+        ${!isPast && livre > 0 ? `<div class="ccount">${livre}</div>` : ''}
+        ${!isPast && livre === 0 && total > 0 ? `<div class="ccount">—</div>` : ''}
+      ` : ''}
+    </div>`;
+  }
+
+  html += '</div>';
+  document.getElementById('content').innerHTML = html;
+}
+
+function gotoDay(ds) {
+  view = 'dia';
+  navDate = new Date(ds+'T12:00:00');
+  document.querySelectorAll('nav button').forEach(b =>
+    b.classList.toggle('active', b.dataset.view === 'dia')
+  );
+  load();
+}
+
+load();
+</script>
+</body>
+</html>

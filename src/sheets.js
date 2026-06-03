@@ -452,6 +452,45 @@ async function updateSlotName(telefone, nome) {
   }
 }
 
+async function getSlotsForDates(dates) {
+  if (!dates.length) return { dates: [] };
+
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+
+  const byMonth = {};
+  for (const date of dates) {
+    const sheetName = getSheetName(date);
+    if (!byMonth[sheetName]) byMonth[sheetName] = new Set();
+    byMonth[sheetName].add(date);
+  }
+
+  const slotsByDate = {};
+  for (const [sheetName, monthDates] of Object.entries(byMonth)) {
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${sheetName}!A:E`,
+      });
+      const rows = response.data.values || [];
+      for (const row of rows.slice(1)) {
+        if (monthDates.has(row[0])) {
+          if (!slotsByDate[row[0]]) slotsByDate[row[0]] = [];
+          slotsByDate[row[0]].push({ horario: row[1], status: row[4] || "livre" });
+        }
+      }
+    } catch (e) {}
+  }
+
+  for (const date in slotsByDate) {
+    slotsByDate[date].sort((a, b) => a.horario.localeCompare(b.horario));
+  }
+
+  return {
+    dates: dates.map((date) => ({ date, slots: slotsByDate[date] || [] })),
+  };
+}
+
 module.exports = {
   getAvailableSlots,
   bookSlot,
@@ -466,4 +505,5 @@ module.exports = {
   getSlotInfo,
   getDaySchedule,
   updateSlotName,
+  getSlotsForDates,
 };
