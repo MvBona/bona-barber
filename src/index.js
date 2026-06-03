@@ -36,6 +36,7 @@ const {
   countClientAppointmentsOnDay,
   getSlotInfo,
   getDaySchedule,
+  updateClientPhone,
   getSlotsForDates,
 } = require("./sheets");
 
@@ -75,6 +76,8 @@ const waitingForNameToBook = new Map();
 // Handoff humano ativo: clientPhone → { name }
 const humanHandoff = new Map();
 const waitingForCancelReason = new Map();
+// Barbeiro agendou sem número: barberPhone → { data, horario, nome }
+const waitingForClientPhone = new Map();
 
 function fmtDate(iso) {
   const [, m, d] = iso.split("-");
@@ -477,10 +480,11 @@ async function processBarberCommand(text) {
       const booked = await bookSlotAdmin(dateMatch, timeMatch, clientName, clientPhone);
       const [y, m, d] = dateMatch.split("-");
       if (booked) {
-        const phoneTag = phoneExtract
-          ? `\n📞 ${phoneExtract}`
-          : `\n⚠️ Sem número — cliente não receberá lembretes.`;
-        return `✅ Agendado *${clientName}* — ${d}/${m} às ${timeMatch}.${phoneTag}`;
+        if (!phoneExtract) {
+          waitingForClientPhone.set(BARBERSHOP_PHONE, { data: dateMatch, horario: timeMatch, nome: clientName });
+          return `✅ Agendado *${clientName}* — ${d}/${m} às ${timeMatch}.\n⚠️ Sem número — cliente não receberá lembretes.\nEnvia o número do cliente para eu registrar.`;
+        }
+        return `✅ Agendado *${clientName}* — ${d}/${m} às ${timeMatch}.\n📞 ${phoneExtract}`;
       }
       return `❌ Não consegui agendar ${clientName} em ${d}/${m} às ${timeMatch}.`;
     }
@@ -613,6 +617,24 @@ async function processAccumulatedMessages(phone, name) {
   );
 
   if (phone === BARBERSHOP_PHONE) {
+    if (waitingForClientPhone.has(phone)) {
+      const { data, horario, nome } = waitingForClientPhone.get(phone);
+      const digits = combinedText.replace(/\D/g, "");
+      const num = digits.length <= 11 && !digits.startsWith("55") ? "55" + digits : digits;
+      if (num.length >= 10 && num.length <= 13) {
+        waitingForClientPhone.delete(phone);
+        const updated = await updateClientPhone(data, horario, num);
+        const [, m, d] = data.split("-");
+        await sendMessage(phone, updated
+          ? `✅ Número registrado para *${nome}* — ${d}/${m} às ${horario}.\n📞 ${num}`
+          : `❌ Não encontrei o agendamento de ${nome} em ${d}/${m} às ${horario}.`
+        );
+        return;
+      }
+      await sendMessage(phone, "Número inválido. Envia só os dígitos, ex: *21999991234*");
+      return;
+    }
+
     const commandResponse = await processBarberCommand(combinedText);
     if (commandResponse) {
       await sendMessage(phone, commandResponse);
@@ -1008,6 +1030,7 @@ if (CRONS_ENABLED) {
       console.log("Limpando histórico de conversas...");
       clearAllHistories();
       waitingForNameToBook.clear();
+      waitingForClientPhone.clear();
       console.log("Histórico limpo!");
     },
     { timezone: "America/Sao_Paulo" },

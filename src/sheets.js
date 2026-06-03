@@ -518,6 +518,33 @@ async function updateSlotName(telefone, nome) {
   }
 }
 
+async function updateClientPhone(data, horario, telefone) {
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+  const sheetName = getSheetName(data);
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A:E`,
+  });
+
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex(
+    (row) => row[0] === data && row[1] === horario && row[4] === "agendado",
+  );
+
+  if (rowIndex === -1) return false;
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!D${rowIndex + 1}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [[telefone]] },
+  });
+
+  return true;
+}
+
 async function getSlotsForDates(dates) {
   if (!dates.length) return { dates: [] };
 
@@ -573,5 +600,6 @@ module.exports = {
   getSlotInfo,
   getDaySchedule,
   updateSlotName,
+  updateClientPhone,
   getSlotsForDates,
 };
