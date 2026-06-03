@@ -1080,7 +1080,7 @@ app.get("/api/slots", async (req, res) => {
 app.post("/webhook", async (req, res) => {
   const body = req.body;
 
-  if (body.fromMe) return res.sendStatus(200);
+  if (body.fromMe || body.isFromMe) return res.sendStatus(200);
 
   const phone = body.phone;
   const name = body.senderName;

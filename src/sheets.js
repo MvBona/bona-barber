@@ -191,12 +191,16 @@ async function cancelSlot(data, horario, telefone) {
     (row) => row[0] === data && row[1] === horario && row[4] === "agendado" && row[3] === telefone,
   );
 
-  // Fallback: se não achou pelo telefone (ex: agendado pelo site com número diferente)
-  // usa data+hora, que é único por slot na barbearia
+  // Fallback: cliente digitou número sem/com código de país (ex: site vs WhatsApp)
+  // Usa os últimos 8 dígitos — suficiente para diferenciar clientes, evita cancelar agendamento alheio
   if (rowIndex === -1) {
-    rowIndex = rows.findIndex(
-      (row) => row[0] === data && row[1] === horario && row[4] === "agendado",
-    );
+    const tail = (p) => (p || "").replace(/\D/g, "").slice(-8);
+    const t = tail(telefone);
+    if (t.length === 8) {
+      rowIndex = rows.findIndex(
+        (row) => row[0] === data && row[1] === horario && row[4] === "agendado" && tail(row[3]) === t,
+      );
+    }
   }
 
   if (rowIndex === -1) return false;
