@@ -185,13 +185,19 @@ async function cancelSlot(data, horario, telefone) {
   });
 
   const rows = response.data.values || [];
-  const rowIndex = rows.findIndex(
-    (row) =>
-      row[0] === data &&
-      row[1] === horario &&
-      row[4] === "agendado" &&
-      row[3] === telefone,
+
+  // Busca exata por telefone
+  let rowIndex = rows.findIndex(
+    (row) => row[0] === data && row[1] === horario && row[4] === "agendado" && row[3] === telefone,
   );
+
+  // Fallback: se não achou pelo telefone (ex: agendado pelo site com número diferente)
+  // usa data+hora, que é único por slot na barbearia
+  if (rowIndex === -1) {
+    rowIndex = rows.findIndex(
+      (row) => row[0] === data && row[1] === horario && row[4] === "agendado",
+    );
+  }
 
   if (rowIndex === -1) return false;
 

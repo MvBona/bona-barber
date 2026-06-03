@@ -1016,6 +1016,10 @@ app.post("/api/book", async (req, res) => {
     `✅ *Novo agendamento (site)*\n👤 ${nome}\n📞 ${phone}\n📅 ${dd}/${mm} às ${horario}`
   );
 
+  // Registra no histórico para o bot reconhecer o cliente em futuras mensagens
+  addToHistory(phone, "user", `quero marcar ${dd}/${mm} às ${horario}`);
+  addToHistory(phone, "assistant", `Valeu, ${nome}! Horário confirmado para ${dd}/${mm} às ${horario}.`);
+
   // Confirmação para o cliente (pula se já está dentro da janela do lembrete 2h)
   if (diffMin >= 150) {
     const barbearia = process.env.BARBERSHOP_NAME || "Soul Black";
