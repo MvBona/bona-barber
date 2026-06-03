@@ -90,7 +90,11 @@ async function interpretMessage(message, availableSlots, clientName, phone) {
     .join("\n");
 
   const currentPeriod = getPeriod();
-  const greetPhrase = { manha: "bom dia", tarde: "boa tarde", noite: "boa noite" }[currentPeriod];
+  const greetPhrase = {
+    manha: "bom dia",
+    tarde: "boa tarde",
+    noite: "boa noite",
+  }[currentPeriod];
   const greetInstruction = shouldGreet(phone)
     ? `- Cumprimente brevemente com "${greetPhrase}". Não use outra saudação de período.`
     : `- NÃO cumprimente — já houve interação neste período. Vá direto ao ponto.`;
