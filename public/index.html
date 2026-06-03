@@ -172,6 +172,8 @@
       border-top:1px solid var(--border);
     }
     footer span { color:var(--gold); }
+    #last-update { font-size:.6rem; color:#333; margin-top:.4rem; letter-spacing:.08em; transition:color .4s; }
+    #last-update.fresh { color:var(--gold); }
 
     @media(max-width:480px) {
       header h1 { font-size:1.5rem; }
@@ -201,7 +203,7 @@
   </div>
 </main>
 
-<footer>Agenda — <span>Soul Black Barbearia</span></footer>
+<footer>Agenda — <span>Soul Black Barbearia</span><div id="last-update"></div></footer>
 
 <script>
 const PAD = n => String(n).padStart(2,'0');
@@ -211,6 +213,28 @@ const MONTHS= ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Ag
 
 let view = 'dia';
 let navDate = new Date();
+let pollTimer = null;
+const POLL_MS = 20000;
+
+function markUpdated() {
+  const el = document.getElementById('last-update');
+  if (!el) return;
+  const now = new Date();
+  el.textContent = `atualizado às ${PAD(now.getHours())}:${PAD(now.getMinutes())}`;
+  el.classList.add('fresh');
+  setTimeout(() => el.classList.remove('fresh'), 1500);
+}
+
+function resetPoll() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(() => {
+    if (document.visibilityState === 'visible') load();
+  }, POLL_MS);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') load();
+});
 
 function setView(v) {
   view = v;
@@ -219,6 +243,7 @@ function setView(v) {
     b.classList.toggle('active', b.dataset.view === v)
   );
   load();
+  resetPoll();
 }
 
 async function load() {
@@ -229,6 +254,7 @@ async function load() {
     const r = await fetch(`/api/slots?view=${view}${qs}`);
     const data = await r.json();
     render(data);
+    markUpdated();
   } catch(e) {
     document.getElementById('content').innerHTML =
       '<div class="loading">Erro ao carregar. Tente novamente.</div>';
@@ -419,6 +445,7 @@ function gotoDay(ds) {
 }
 
 load();
+resetPoll();
 </script>
 </body>
 </html>
