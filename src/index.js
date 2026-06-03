@@ -186,8 +186,8 @@ async function sendReminders(horasAntes) {
       const msg = horasAntes === 24
         ? tr(appt.telefone, "reminder24h", appt.horario, nome)
         : tr(appt.telefone, "reminder2h", appt.horario, nome);
-      await sendMessage(appt.telefone, msg);
       await markReminderSent(appt.sheetName, appt.rowIndex, appt.lembretes, `${horasAntes}h`);
+      await sendMessage(appt.telefone, msg);
       addToHistory(appt.telefone, "assistant", msg);
       console.log(
         `Lembrete ${horasAntes}h enviado para ${appt.nome} (${appt.telefone})`,
