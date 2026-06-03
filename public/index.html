@@ -26,25 +26,35 @@
     /* ── HEADER ── */
     header {
       text-align:center;
-      padding:2.5rem 1rem 2rem;
-      background:linear-gradient(180deg,#111 0%,var(--bg) 100%);
+      padding:2rem 1rem 1.8rem;
+      background:linear-gradient(180deg,#0d0d0d 0%,var(--bg) 100%);
       border-bottom:1px solid var(--border);
+      position:relative;
+    }
+    header::before {
+      content:''; position:absolute; top:0; left:50%; transform:translateX(-50%);
+      width:60%; height:1px;
+      background:linear-gradient(90deg,transparent,rgba(201,164,71,.4),transparent);
     }
     header img {
-      width:130px; height:130px; object-fit:contain;
-      border-radius:12px; margin-bottom:.8rem;
+      width:min(65vw, 220px); height:min(65vw, 220px);
+      object-fit:contain;
+      border-radius:50%;
+      border:2px solid rgba(201,164,71,.35);
+      box-shadow:0 0 0 8px rgba(201,164,71,.04), 0 12px 40px rgba(0,0,0,.7);
+      margin-bottom:1rem;
     }
-    header h1 {
-      font-family:'Cinzel',serif; font-size:2rem; font-weight:900;
-      color:var(--gold); letter-spacing:.15em; text-transform:uppercase;
-    }
-    header p {
-      color:var(--muted); font-size:.7rem; letter-spacing:.3em;
-      text-transform:uppercase; margin-top:.3rem;
+    header h1 { display:none; }
+    .agenda-badge {
+      display:inline-flex; align-items:center; gap:.5rem;
+      background:rgba(201,164,71,.07); border:1px solid rgba(201,164,71,.25);
+      border-radius:999px; padding:.38rem 1.1rem;
+      font-family:'Cinzel',serif; font-size:.58rem;
+      color:var(--gold); letter-spacing:.25em; text-transform:uppercase;
     }
     .gold-line {
-      width:60px; height:2px; background:var(--gold);
-      margin:.8rem auto 0; border-radius:2px; opacity:.6;
+      width:50px; height:1px; background:var(--gold);
+      margin:.9rem auto 0; border-radius:2px; opacity:.4;
     }
 
     /* ── NAV ── */
@@ -252,8 +262,7 @@
     .whatsapp-btn svg { width:18px; height:18px; fill:#25D366; flex-shrink:0; }
 
     @media(max-width:480px) {
-      header h1 { font-size:1.5rem; }
-      header img { width:100px; height:100px; }
+      header img { width:min(60vw,180px); height:min(60vw,180px); }
       .day-title .dt-main { font-size:1.2rem; }
 
       /* Calendar mobile */
@@ -289,7 +298,7 @@
 <header>
   <img src="/logo.jpeg" alt="Soul Black" onerror="this.style.display='none'">
   <h1>Soul Black</h1>
-  <p>Barbearia &nbsp;·&nbsp; Agenda Online</p>
+  <div class="agenda-badge">✂&nbsp; Agenda Online</div>
   <div class="gold-line"></div>
 </header>
 
