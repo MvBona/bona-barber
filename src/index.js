@@ -137,6 +137,7 @@ async function sendMessage(phone, message) {
 
 async function notifyBarber(message) {
   if (!BARBERSHOP_PHONE) return;
+  console.log("DEBUG notifyBarber → enviando para:", BARBERSHOP_PHONE);
   try {
     await sendMessage(BARBERSHOP_PHONE, message);
   } catch (error) {
