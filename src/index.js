@@ -1091,20 +1091,14 @@ app.post("/api/book", async (req, res) => {
   const diffMin = (slotTime - now) / (1000 * 60);
   const [, mm, dd] = date.split("-");
 
-  if (diffMin < 60) {
-    await notifyBarber(
-      `⚡ *Pedido urgente (site)*\n👤 ${nome}\n📞 ${phone}\n📅 ${dd}/${mm} às ${horario}\n\nPara confirmar: *agenda ${nome} ${phone} dia ${dd}/${mm} ${horario}*`
-    );
-    return res.json({ ok: true, tipo: "pendente" });
-  }
-
   const booked = await bookSlot(date, horario, nome, phone);
   if (!booked) {
     return res.status(409).json({ error: "Esse horário acabou de ser ocupado. Escolha outro." });
   }
 
-  await notifyBarber(
-    `✅ *Novo agendamento (site)*\n👤 ${nome}\n📞 ${phone}\n📅 ${dd}/${mm} às ${horario}`
+  await notifyBarber(diffMin < 60
+    ? `⚡ *Agendamento em cima da hora (site)*\n👤 ${nome}\n📞 ${phone}\n📅 ${dd}/${mm} às ${horario}`
+    : `✅ *Novo agendamento (site)*\n👤 ${nome}\n📞 ${phone}\n📅 ${dd}/${mm} às ${horario}`
   );
 
   // Registra no histórico para o bot reconhecer o cliente em futuras mensagens
