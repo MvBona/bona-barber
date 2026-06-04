@@ -137,7 +137,6 @@ async function sendMessage(phone, message) {
 
 async function notifyBarber(message) {
   if (!BARBERSHOP_PHONE) return;
-  console.log("DEBUG notifyBarber → enviando para:", BARBERSHOP_PHONE);
   try {
     await sendMessage(BARBERSHOP_PHONE, message);
   } catch (error) {
@@ -1057,20 +1056,23 @@ async function processAccumulatedMessages(phone, name) {
       const count = await countClientAppointmentsOnDay(phone, result.data);
       if (count >= 2) {
         await sendMessage(phone, tr(phone, "maxBookings"));
-      } else if (!isValidName(name)) {
-        waitingForNameToBook.set(phone, { data: result.data, horario: result.horario });
-        await sendMessage(phone, tr(phone, "waitingName"));
       } else {
-        const booked = await bookSlot(result.data, result.horario, name, phone);
-        if (!booked) {
-          await sendMessage(phone, tr(phone, "slotTaken"));
+        const nomeFinal = result.nome_informado || (isValidName(name) ? name : null);
+        if (!nomeFinal) {
+          waitingForNameToBook.set(phone, { data: result.data, horario: result.horario });
+          await sendMessage(phone, tr(phone, "waitingName"));
         } else {
-          const lang2 = clientLanguages.get(phone) || "pt";
-          const resposta = lang2 !== "pt" ? `${result.resposta}\n\n${tr(phone, "langNote")}` : result.resposta;
-          await sendMessage(phone, resposta);
-          await notifyBarber(
-            `✅ *Novo agendamento*\n👤 ${name}\n📅 ${fmtDate(result.data)}\n🕐 ${result.horario}`,
-          );
+          const booked = await bookSlot(result.data, result.horario, nomeFinal, phone);
+          if (!booked) {
+            await sendMessage(phone, tr(phone, "slotTaken"));
+          } else {
+            const lang2 = clientLanguages.get(phone) || "pt";
+            const resposta = lang2 !== "pt" ? `${result.resposta}\n\n${tr(phone, "langNote")}` : result.resposta;
+            await sendMessage(phone, resposta);
+            await notifyBarber(
+              `✅ *Novo agendamento*\n👤 ${nomeFinal}\n📅 ${fmtDate(result.data)}\n🕐 ${result.horario}`,
+            );
+          }
         }
       }
     } else if (result.acao === "cancelar" && result.data && result.horario) {

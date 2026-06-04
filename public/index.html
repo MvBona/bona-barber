@@ -249,14 +249,16 @@
     .modal-input:focus { border-color:var(--gold); }
     .modal-input::placeholder { color:var(--muted); }
     .modal-btn {
-      width:100%; padding:.85rem; background:var(--gold);
-      border:none; border-radius:7px; color:#111;
+      display:flex; align-items:center; justify-content:center; gap:.5rem;
+      width:100%; padding:.85rem; background:#25D366;
+      border:none; border-radius:7px; color:#fff;
       font-family:'Cinzel',serif; font-size:.8rem; font-weight:700;
       letter-spacing:.1em; text-transform:uppercase;
-      cursor:pointer; transition:opacity .2s;
+      cursor:pointer; transition:opacity .2s; text-decoration:none;
     }
     .modal-btn:hover { opacity:.85; }
-    .modal-btn:disabled { opacity:.4; cursor:default; }
+    .modal-btn svg { width:18px; height:18px; fill:#fff; flex-shrink:0; }
+    .modal-note { font-size:.65rem; color:var(--muted); text-align:center; margin-top:.6rem; line-height:1.5; }
     .modal-msg { text-align:center; font-size:.78rem; margin-top:.9rem; min-height:1.2rem; }
     .modal-msg.ok   { color:var(--green); }
     .modal-msg.err  { color:var(--red); }
@@ -370,12 +372,12 @@
 <div id="modal" class="modal-overlay" style="display:none" onclick="handleOverlayClick(event)">
   <div class="modal-box">
     <button class="modal-close" onclick="closeModal()">✕</button>
-    <div class="modal-title">Agendar</div>
+    <div class="modal-title" id="modal-title">Agendar</div>
     <div class="modal-sub" id="modal-sub"></div>
-    <div class="modal-warning" id="modal-warning" style="display:none">⚡ Horario próximo — sujeto a aprobación del barbero</div>
-    <input id="book-nome" class="modal-input" type="text" placeholder="Tu nombre" autocomplete="name">
-    <input id="book-phone" class="modal-input" type="tel" placeholder="WhatsApp (ej: 0994 123 456)" autocomplete="tel">
-    <button id="book-btn" class="modal-btn" onclick="submitBooking()">Confirmar turno</button>
+    <div class="modal-warning" id="modal-warning" style="display:none"></div>
+    <input id="book-nome" class="modal-input" type="text" autocomplete="name">
+    <input id="book-phone" class="modal-input" type="tel" autocomplete="tel">
+    <div id="modal-body"></div>
     <div id="book-msg" class="modal-msg"></div>
   </div>
 </div>
@@ -400,15 +402,13 @@ const LANG = {
     pastBanner:'Horários encerrados para este dia', noSlots:'Sem horários disponíveis',
     disponivel:'Disponível', ocupado:'Ocupado', bloqueado:'Bloqueado', encerrado:'Encerrado',
     fechado:'Fechado', libres: n=>`${n} livre${n!==1?'s':''}`, lotado:'Lotado',
-    modalWarning:'⚡ Horario próximo — Bora que tá bem em cima 🏃',
+    modalWarning:'⚡ Horário próximo — Bora que tá bem em cima 🏃',
     nomePh:'Seu nome', phonePh:'WhatsApp (ex: 21999991234)',
-    confirmBtn:'Confirmar agendamento', solicitarBtn:'Confirmar agendamento',
-    nameErr:'Informe seu nome.', phoneErr:'Número inválido.', waiting:'Aguarde...',
-    pendente:'⏳ Solicitação enviada! O barbeiro confirmará em breve.',
-    confirmado:'✅ Agendado!',
-    waLabel:'Para receber lembretes, mande uma mensagem:',
-    waBtn:'Ativar lembretes no WhatsApp',
-    connErr:'Erro de conexão. Tente novamente.', agendar:'Agendar',
+    nameErr:'Informe seu nome.',
+    waBookBtn:'Confirmar pelo WhatsApp',
+    waBookMsg: (dd, mm, h, nome) => `Quero marcar para o dia ${dd}/${mm} às ${h}. Meu nome é ${nome}.`,
+    waBookNote:'Abre o WhatsApp e envia a mensagem para confirmar.',
+    agendar:'Agendar',
   },
   es: {
     days:   ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'],
@@ -422,13 +422,11 @@ const LANG = {
     fechado:'Cerrado', libres: n=>`${n} libre${n!==1?'s':''}`, lotado:'Lleno',
     modalWarning:'⚡ Horario próximo — ¡Dale que está bien encima! 🏃',
     nomePh:'Tu nombre', phonePh:'WhatsApp (ej: 0994 123 456)',
-    confirmBtn:'Confirmar turno', solicitarBtn:'Confirmar turno',
-    nameErr:'Ingresá tu nombre.', phoneErr:'Número inválido.', waiting:'Espera...',
-    pendente:'⏳ ¡Solicitud enviada! El barbero confirmará en breve.',
-    confirmado:'✅ ¡Turno confirmado!',
-    waLabel:'Para recibir recordatorios, enviá un mensaje:',
-    waBtn:'Activar recordatorios en WhatsApp',
-    connErr:'Error de conexión. Intentá de nuevo.', agendar:'Agendar',
+    nameErr:'Ingresá tu nombre.',
+    waBookBtn:'Confirmar por WhatsApp',
+    waBookMsg: (dd, mm, h, nome) => `Quiero reservar para el día ${dd}/${mm} a las ${h}. Mi nombre es ${nome}.`,
+    waBookNote:'Abrí WhatsApp y enviá el mensaje para confirmar.',
+    agendar:'Agendar',
   }
 };
 
@@ -441,8 +439,6 @@ function setLang(l) {
   document.getElementById('btn-pt').classList.toggle('active', l==='pt');
   document.getElementById('btn-es').classList.toggle('active', l==='es');
   document.querySelectorAll('nav button').forEach(b => { b.textContent = t().nav[b.dataset.view]; });
-  document.getElementById('book-nome').placeholder = t().nomePh;
-  document.getElementById('book-phone').placeholder = t().phonePh;
   load();
 }
 
@@ -702,28 +698,41 @@ function gotoDay(ds) {
 /* ── MODAL DE AGENDAMENTO ── */
 let bookingDate = null, bookingHorario = null;
 
+const WA_SVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>`;
+
 function openBooking(date, horario) {
   bookingDate = date; bookingHorario = horario;
   const [, mm, dd] = date.split('-');
-  const now = new Date();
-  const [h, m] = horario.split(':').map(Number);
-  const slot = new Date(now); slot.setHours(h, m, 0, 0);
-  if (date > FMT(now)) slot.setDate(slot.getDate() + (new Date(date+'T12:00').getDate() - now.getDate()));
-  const diffMin = (new Date(date+'T'+horario) - now) / 60000;
+  const diffMin = (new Date(date+'T'+horario) - new Date()) / 60000;
   const urgent = diffMin < 60;
 
   document.getElementById('modal-sub').textContent = `${dd}/${mm} às ${horario}`;
-  document.getElementById('modal-warning').textContent = t().modalWarning;
+  document.getElementById('modal-warning').textContent = urgent ? t().modalWarning : '';
   document.getElementById('modal-warning').style.display = urgent ? 'block' : 'none';
-  document.getElementById('book-btn').textContent = urgent ? t().solicitarBtn : t().confirmBtn;
   document.getElementById('book-nome').value = '';
+  document.getElementById('book-nome').placeholder = t().nomePh;
   document.getElementById('book-phone').value = '';
+  document.getElementById('book-phone').placeholder = t().phonePh;
   document.getElementById('book-msg').textContent = '';
   document.getElementById('book-msg').className = 'modal-msg';
-  document.getElementById('book-btn').disabled = false;
-  document.getElementById('book-btn').style.display = '';
+  document.getElementById('modal-body').innerHTML = `
+    <button class="modal-btn" onclick="confirmViaWA()">${WA_SVG} ${t().waBookBtn}</button>
+    <div class="modal-note">${t().waBookNote}</div>`;
   document.getElementById('modal').style.display = 'flex';
   setTimeout(() => document.getElementById('book-nome').focus(), 50);
+}
+
+function confirmViaWA() {
+  const nome = document.getElementById('book-nome').value.trim();
+  const msg = document.getElementById('book-msg');
+  if (!nome || nome.length < 2) {
+    msg.textContent = t().nameErr; msg.className = 'modal-msg err'; return;
+  }
+  const [, mm, dd] = bookingDate.split('-');
+  const waText = encodeURIComponent(t().waBookMsg(dd, mm, bookingHorario, nome));
+  window.open(`https://wa.me/595994193000?text=${waText}`, '_blank');
+  closeModal();
+  load();
 }
 
 function closeModal() {
@@ -736,53 +745,6 @@ function handleOverlayClick(e) {
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-async function submitBooking() {
-  const nome = document.getElementById('book-nome').value.trim();
-  const telefone = document.getElementById('book-phone').value.trim();
-  const msg = document.getElementById('book-msg');
-  const btn = document.getElementById('book-btn');
-
-  if (!nome || nome.length < 2) { msg.textContent = t().nameErr; msg.className = 'modal-msg err'; return; }
-  const digits = telefone.replace(/\D/g, '');
-  if (digits.length < 9) { msg.textContent = t().phoneErr; msg.className = 'modal-msg err'; return; }
-
-  btn.disabled = true;
-  msg.textContent = t().waiting; msg.className = 'modal-msg';
-
-  try {
-    const r = await fetch('/api/book', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: bookingDate, horario: bookingHorario, nome, telefone: digits }),
-    });
-    const data = await r.json();
-    if (!r.ok) {
-      msg.textContent = data.error || 'Erro ao agendar.'; msg.className = 'modal-msg err';
-      btn.disabled = false; return;
-    }
-    if (data.tipo === 'pendente') {
-      msg.textContent = t().pendente; msg.className = 'modal-msg pend';
-      setTimeout(() => { closeModal(); load(); }, 3000);
-    } else {
-      const [,mm,dd] = bookingDate.split('-');
-      const waText = encodeURIComponent(`Oi! Acabei de agendar para ${dd}/${mm} às ${bookingHorario}.`);
-      const waUrl = `https://wa.me/595994193000?text=${waText}`;
-      btn.style.display = 'none';
-      msg.className = 'modal-msg';
-      msg.innerHTML = `
-        <div class="confirm-ok">${t().confirmado}</div>
-        <div class="confirm-wa-label">${t().waLabel}</div>
-        <a href="${waUrl}" target="_blank" rel="noopener" class="confirm-wa-btn" onclick="setTimeout(()=>{closeModal();load();},1000)">
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-          ${t().waBtn}
-        </a>`;
-      load();
-    }
-  } catch(e) {
-    msg.textContent = t().connErr; msg.className = 'modal-msg err';
-    btn.disabled = false;
-  }
-}
 
 // Inicializa idioma
 setLang(lang);
