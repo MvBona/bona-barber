@@ -1290,7 +1290,7 @@ app.get("/api/slots", async (req, res) => {
     if (d.getDay() !== 0) dates = [FMT(d)];
   } else if (view === "semana") {
     const cursor = new Date(now);
-    while (dates.length < 6) {
+    while (dates.length < 7) {
       if (cursor.getDay() !== 0) dates.push(FMT(cursor));
       cursor.setDate(cursor.getDate() + 1);
     }
@@ -1305,6 +1305,19 @@ app.get("/api/slots", async (req, res) => {
 
   try {
     const data = await getSlotsForDates(dates);
+
+    if (view === "semana") {
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      const todayStr = FMT(now);
+      data.dates = data.dates.filter(d => {
+        if (d.date !== todayStr) return true;
+        return d.slots.some(s => {
+          const [h, m] = s.horario.split(":").map(Number);
+          return s.status === "livre" && (h * 60 + m) > nowMinutes;
+        });
+      }).slice(0, 6);
+    }
+
     res.json(data);
   } catch (e) {
     console.error("Erro /api/slots:", e.message);
@@ -1350,7 +1363,7 @@ app.post("/webhook", async (req, res) => {
 
   if (debounceTimers.has(phone)) clearTimeout(debounceTimers.get(phone));
 
-  const debounceTime = phone === BARBERSHOP_PHONE ? 3000 : 30 * 1000;
+  const debounceTime = phone === BARBERSHOP_PHONE ? 3000 : 20 * 1000;
   const timer = setTimeout(() => {
     processAccumulatedMessages(phone, name);
   }, debounceTime);

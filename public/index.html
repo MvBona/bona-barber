@@ -21,7 +21,7 @@
     }
     * { margin:0; padding:0; box-sizing:border-box; }
     html { scroll-behavior:smooth; }
-    body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; }
+    body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; display:flex; flex-direction:column; }
 
     /* ── HEADER ── */
     header {
@@ -91,7 +91,7 @@
     nav button:hover:not(.active) { color:var(--text); background:rgba(255,255,255,.03); }
 
     /* ── MAIN ── */
-    main { max-width:860px; margin:0 auto; padding:1.8rem 1rem 3rem; }
+    main { max-width:860px; width:100%; margin:0 auto; padding:1.8rem 1rem 3rem; flex:1; }
     .loading { text-align:center; padding:4rem 1rem; color:var(--muted); font-size:.85rem; letter-spacing:.1em; }
     .spinner { display:inline-block; width:28px; height:28px; border:2px solid var(--border); border-top-color:var(--gold); border-radius:50%; animation:spin .8s linear infinite; margin-bottom:1rem; }
     @keyframes spin { to { transform:rotate(360deg); } }
@@ -313,8 +313,8 @@
       .cal-wn { font-size:.52rem; padding:.25rem 0; }
       .month-title { font-size:.95rem; }
 
-      /* Semana: esconde slots indisponíveis no mobile, exceto hoje */
-      .wslot:not(.livre) { display:none; }
+      /* Semana: esconde apenas passado no mobile */
+      .wslot.passado { display:none; }
       .week-col.is-today .wslot { display:block; }
 
       /* Nav */
@@ -658,9 +658,10 @@ function renderMonth(data) {
       return true;
     }).length;
     const total = slots.length;
+    const isTodayDone = isToday && livre === 0;
 
     let barColor = '#333', barW = 0;
-    if (!isSun && isPast) {
+    if (!isSun && (isPast || isTodayDone)) {
       barColor = total > 0 ? '#2e2e2e' : '#222';
       barW = 100;
     } else if (!isSun && !isPast && total > 0) {
@@ -672,20 +673,20 @@ function renderMonth(data) {
     const cls = [
       'cal-cell',
       isSun ? 'sunday' : '',
-      isPast ? 'past' : '',
-      isToday ? 'today' : ''
+      (isPast || isTodayDone) ? 'past' : '',
+      isToday && !isTodayDone ? 'today' : ''
     ].filter(Boolean).join(' ');
 
     const click = !isSun ? `onclick="gotoDay('${ds}')"` : '';
-    const showBar = !isSun && (isPast || total > 0);
+    const showBar = !isSun && (isPast || isTodayDone || total > 0);
 
     html += `<div class="${cls}" ${click}>
       <div class="cdn">${d}</div>
       ${isSun ? `<div class="sun-label">${t().fechado}</div>` : ''}
       ${showBar ? `
         <div class="cbar" style="background:linear-gradient(to right,${barColor} ${barW}%,#252525 ${barW}%)"></div>
-        ${!isPast && livre > 0 ? `<div class="ccount">${t().libres(livre)}</div>` : ''}
-        ${!isPast && livre === 0 && total > 0 ? `<div class="ccount" style="color:var(--red)">${t().lotado}</div>` : ''}
+        ${!isPast && !isTodayDone && livre > 0 ? `<div class="ccount">${t().libres(livre)}</div>` : ''}
+        ${!isPast && !isTodayDone && livre === 0 && total > 0 ? `<div class="ccount" style="color:var(--red)">${t().lotado}</div>` : ''}
       ` : ''}
     </div>`;
   }
