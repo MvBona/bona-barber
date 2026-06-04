@@ -173,14 +173,13 @@ async function sendUnconfirmedNotifications(tipo, minutosGraca) {
     const appointments = await getUnconfirmedReminders(tipo, minutosGraca);
     if (appointments.length === 0) return;
 
-    const prazo = tipo === "24h" ? "2h" : "20min";
     const linhas = appointments.map(appt =>
       `👤 ${appt.nome || "Cliente"} — ${fmtDate(appt.data)} às ${appt.horario} — 📞 ${appt.telefone}`
     );
     const msg =
-      `⚠️ *Sem confirmação (${prazo}) — ${appointments.length} cliente${appointments.length !== 1 ? "s" : ""}*\n\n` +
+      `⚠️ *Sem resposta ao lembrete de ${tipo} — ${appointments.length} cliente${appointments.length !== 1 ? "s" : ""}*\n\n` +
       linhas.join("\n") +
-      `\n\nLembrete de ${tipo} enviado mas sem resposta.`;
+      `\n\nJá faz ${minutosGraca}min desde o lembrete, nenhuma resposta.`;
 
     await notifyBarber(msg);
 
@@ -221,7 +220,9 @@ async function processBarberCommand(text) {
     .toLowerCase()
     .trim()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\bhj\b/g, "hoje")
+    .replace(/\bamh\u00e3\b|\bamha\b/g, "amanha");
 
   const now = new Date(
     new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
