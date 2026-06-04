@@ -1150,14 +1150,14 @@ if (CRONS_ENABLED) {
   schedule.schedule("0 10 * * *", () => sendReminders(24), {
     timezone: "America/Sao_Paulo",
   });
-  schedule.schedule("0 * * * *", () => sendReminders(2), {
+  schedule.schedule("0 * * * *", () => sendReminders(1), {
     timezone: "America/Sao_Paulo",
   });
 
   schedule.schedule("0 12 * * *", () => sendUnconfirmedNotifications("24h", 120), {
     timezone: "America/Sao_Paulo",
   });
-  schedule.schedule("20 * * * *", () => sendUnconfirmedNotifications("2h", 20), {
+  schedule.schedule("20 * * * *", () => sendUnconfirmedNotifications("1h", 20), {
     timezone: "America/Sao_Paulo",
   });
 

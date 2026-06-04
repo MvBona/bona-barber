@@ -173,7 +173,6 @@ async function bookSlotAdmin(data, horario, nome, telefone) {
 }
 
 async function cancelSlot(data, horario, telefone) {
-  if (isWithinTwoHours(data, horario)) return "bloqueado_tempo";
 
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
@@ -257,7 +256,6 @@ async function rescheduleSlot(
   nome,
   telefone,
 ) {
-  if (isWithinTwoHours(dataAtual, horarioAtual)) return "bloqueado_tempo";
 
   const cancelado = await cancelSlot(dataAtual, horarioAtual, telefone);
   if (!cancelado || cancelado === "bloqueado_tempo") return cancelado;
