@@ -721,6 +721,7 @@ function openBooking(date, horario) {
   document.getElementById('book-msg').textContent = '';
   document.getElementById('book-msg').className = 'modal-msg';
   document.getElementById('book-btn').disabled = false;
+  document.getElementById('book-btn').style.display = '';
   document.getElementById('modal').style.display = 'flex';
   setTimeout(() => document.getElementById('book-nome').focus(), 50);
 }
