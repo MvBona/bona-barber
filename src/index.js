@@ -81,6 +81,8 @@ const humanHandoff = new Map();
 const waitingForCancelReason = new Map();
 // Barbeiro agendou sem número: barberPhone → { data, horario, nome }
 const waitingForClientPhone = new Map();
+// Barbeiro acionou "agenda em massa" e está aguardando as linhas
+const waitingForMassBooking = new Set();
 
 function fmtDate(iso) {
   const [, m, d] = iso.split("-");
@@ -491,7 +493,15 @@ async function processBarberCommand(text) {
     const bookingLines = lines.slice(1);
 
     if (!bookingLines.length) {
-      return `❓ Manda assim:\n*agenda massa*\nNome Numero HHh DD/MM\nNome Numero HHh DD/MM`;
+      waitingForMassBooking.add(BARBERSHOP_PHONE);
+      return `📋 *Agendamento em massa*\n\nManda os agendamentos, um por linha:\n\n` +
+        `*Nome Número HHh DD/MM*\n\n` +
+        `Exemplo:\n` +
+        `João 21999991234 14h 04/06\n` +
+        `Maria 15h 05/06\n` +
+        `Pedro 21999995678 16h 05/06\n\n` +
+        `💡 Número é opcional — sem número o cliente não recebe lembrete.\n` +
+        `💡 Se todos forem no mesmo dia, manda a data junto: *agenda massa 15/06*`;
     }
 
     const results = [];
@@ -736,6 +746,13 @@ async function processAccumulatedMessages(phone, name) {
         return;
       }
       await sendMessage(phone, "Número inválido. Envia só os dígitos, ex: *21999991234*");
+      return;
+    }
+
+    if (waitingForMassBooking.has(phone)) {
+      waitingForMassBooking.delete(phone);
+      const massResult = await processBarberCommand("agenda massa\n" + combinedText);
+      await sendMessage(phone, massResult || "❌ Não consegui processar. Tenta de novo.");
       return;
     }
 
@@ -1201,6 +1218,7 @@ if (CRONS_ENABLED) {
       clearAllHistories();
       waitingForNameToBook.clear();
       waitingForClientPhone.clear();
+      waitingForMassBooking.clear();
       console.log("Histórico limpo!");
     },
     { timezone: "America/Sao_Paulo" },
