@@ -1264,13 +1264,10 @@ app.post("/api/book", async (req, res) => {
   addToHistory(phone, "user", `quero marcar ${dd}/${mm} às ${horario}`);
   addToHistory(phone, "assistant", `Valeu, ${nome}! Horário confirmado para ${dd}/${mm} às ${horario}.`);
 
-  // Confirmação para o cliente (pula se já está dentro da janela do lembrete 2h)
-  if (diffMin >= 150) {
-    const barbearia = process.env.BARBERSHOP_NAME || "Soul Black";
-    await sendMessage(phone,
-      `Valeu, ${nome}! 🖤✂️\nHorário confirmado para *${dd}/${mm} às ${horario}* na ${barbearia}.\nVocê receberá um lembrete antes do horário. Até lá!`
-    );
-  }
+  const barbearia = process.env.BARBERSHOP_NAME || "Soul Black";
+  await sendMessage(phone,
+    `Valeu, ${nome}! 🖤✂️\nHorário confirmado para *${dd}/${mm} às ${horario}* na ${barbearia}.\nVocê receberá um lembrete antes do horário. Até lá!`
+  );
 
   return res.json({ ok: true, tipo: "confirmado" });
 });
