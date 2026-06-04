@@ -971,8 +971,9 @@ async function processAccumulatedMessages(phone, name) {
         const confirmMsg = tr(phone, "bookingConfirm", nomeLimpo, horario);
         const fullMsg = lang1 !== "pt" ? `${confirmMsg}\n\n${tr(phone, "langNote")}` : confirmMsg;
         await sendMessage(phone, fullMsg);
+        const srv1 = result.servicos?.length ? `\n✂️ ${result.servicos.join(', ')}` : '';
         await notifyBarber(
-          `✅ *Novo agendamento*\n👤 ${nomeLimpo}\n📅 ${fmtDate(data)}\n🕐 ${horario}`,
+          `✅ *Novo agendamento*\n👤 ${nomeLimpo}\n📅 ${fmtDate(data)}\n🕐 ${horario}${srv1}`,
         );
       }
       return;
@@ -1069,8 +1070,9 @@ async function processAccumulatedMessages(phone, name) {
             const lang2 = clientLanguages.get(phone) || "pt";
             const resposta = lang2 !== "pt" ? `${result.resposta}\n\n${tr(phone, "langNote")}` : result.resposta;
             await sendMessage(phone, resposta);
+            const srv2 = result.servicos?.length ? `\n✂️ ${result.servicos.join(', ')}` : '';
             await notifyBarber(
-              `✅ *Novo agendamento*\n👤 ${nomeFinal}\n📅 ${fmtDate(result.data)}\n🕐 ${result.horario}`,
+              `✅ *Novo agendamento*\n👤 ${nomeFinal}\n📅 ${fmtDate(result.data)}\n🕐 ${result.horario}${srv2}`,
             );
           }
         }

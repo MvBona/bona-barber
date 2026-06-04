@@ -265,6 +265,15 @@
     .modal-msg.pend { color:var(--gold); }
     .confirm-ok { color:var(--green); font-size:.85rem; margin-bottom:.9rem; }
     .confirm-wa-label { color:var(--muted); font-size:.7rem; letter-spacing:.05em; margin-bottom:.6rem; }
+    .service-label { font-size:.65rem; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; margin-bottom:.5rem; }
+    .service-chips { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:.85rem; }
+    .chip {
+      padding:.4rem .85rem; border-radius:20px; font-size:.75rem; font-family:'Inter',sans-serif;
+      border:1px solid var(--border); background:transparent; color:var(--muted);
+      cursor:pointer; transition:all .18s; letter-spacing:.03em; user-select:none;
+    }
+    .chip:hover { border-color:var(--gold); color:var(--text); }
+    .chip.selected { border-color:var(--gold); background:var(--gold-dim); color:var(--gold); }
     .confirm-wa-btn {
       display:flex; align-items:center; gap:.5rem; justify-content:center;
       background:#25D366; color:#fff; text-decoration:none;
@@ -376,6 +385,13 @@
     <div class="modal-sub" id="modal-sub"></div>
     <div class="modal-warning" id="modal-warning" style="display:none"></div>
     <input id="book-nome" class="modal-input" type="text" autocomplete="name">
+    <div class="service-label">Serviço</div>
+    <div class="service-chips">
+      <button class="chip" onclick="toggleChip(this)">Corte</button>
+      <button class="chip" onclick="toggleChip(this)">Barba</button>
+      <button class="chip" onclick="toggleChip(this)">Sobrancelha</button>
+      <button class="chip" onclick="toggleChip(this)">Lavagem + Penteado</button>
+    </div>
     <div id="modal-body"></div>
     <div id="book-msg" class="modal-msg"></div>
   </div>
@@ -405,7 +421,7 @@ const LANG = {
     nomePh:'Seu nome', phonePh:'WhatsApp (ex: 21999991234)',
     nameErr:'Informe seu nome.',
     waBookBtn:'Confirmar pelo WhatsApp',
-    waBookMsg: (dd, mm, h, nome) => `Quero marcar para o dia ${dd}/${mm} às ${h}. Meu nome é ${nome}.`,
+    waBookMsg: (dd, mm, h, nome, servicos) => `Quero marcar para o dia ${dd}/${mm} às ${h}. Meu nome é ${nome}.${servicos ? ` Serviços: ${servicos}.` : ''}`,
     waBookNote:'Abre o WhatsApp e envia a mensagem para confirmar.',
     agendar:'Agendar',
   },
@@ -423,7 +439,7 @@ const LANG = {
     nomePh:'Tu nombre', phonePh:'WhatsApp (ej: 0994 123 456)',
     nameErr:'Ingresá tu nombre.',
     waBookBtn:'Confirmar por WhatsApp',
-    waBookMsg: (dd, mm, h, nome) => `Quiero reservar para el día ${dd}/${mm} a las ${h}. Mi nombre es ${nome}.`,
+    waBookMsg: (dd, mm, h, nome, servicos) => `Quiero reservar para el día ${dd}/${mm} a las ${h}. Mi nombre es ${nome}.${servicos ? ` Servicios: ${servicos}.` : ''}`,
     waBookNote:'Abrí WhatsApp y enviá el mensaje para confirmar.',
     agendar:'Agendar',
   }
@@ -514,6 +530,9 @@ function renderDay(data) {
         return t > new Date();
       })
     : day.slots;
+
+  // Se hoje acabou, avança automaticamente para amanhã
+  if (isToday && !visible.length) { shiftDay(1); return; }
 
   const livre = isPast ? 0 : visible.filter(s => s.status === 'livre').length;
   const [,mm,dd] = day.date.split('-');
@@ -719,6 +738,7 @@ function openBooking(date, horario) {
   document.getElementById('modal-warning').style.display = urgent ? 'block' : 'none';
   document.getElementById('book-nome').value = '';
   document.getElementById('book-nome').placeholder = t().nomePh;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
   document.getElementById('book-msg').textContent = '';
   document.getElementById('book-msg').className = 'modal-msg';
   document.getElementById('modal-body').innerHTML = `
@@ -728,6 +748,14 @@ function openBooking(date, horario) {
   setTimeout(() => document.getElementById('book-nome').focus(), 50);
 }
 
+function toggleChip(el) {
+  el.classList.toggle('selected');
+}
+
+function getSelectedServices() {
+  return [...document.querySelectorAll('.chip.selected')].map(c => c.textContent).join(', ');
+}
+
 function confirmViaWA() {
   const nome = document.getElementById('book-nome').value.trim();
   const msg = document.getElementById('book-msg');
@@ -735,7 +763,8 @@ function confirmViaWA() {
     msg.textContent = t().nameErr; msg.className = 'modal-msg err'; return;
   }
   const [, mm, dd] = bookingDate.split('-');
-  const waText = encodeURIComponent(t().waBookMsg(dd, mm, bookingHorario, nome));
+  const servicos = getSelectedServices();
+  const waText = encodeURIComponent(t().waBookMsg(dd, mm, bookingHorario, nome, servicos || null));
   window.open(`https://wa.me/595994193000?text=${waText}`, '_blank');
   closeModal();
   load();
