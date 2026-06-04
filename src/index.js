@@ -486,16 +486,21 @@ async function processBarberCommand(text) {
   if (hasMassBooking) {
     const lines = text.trim().split("\n").map(l => l.trim()).filter(Boolean);
     const triggerNorm = lines[0].toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-    const date = extractDate(triggerNorm) ||
+    const defaultDate = extractDate(triggerNorm) ||
       `${currentYear}-${currentMonth}-${String(now.getDate()).padStart(2, "0")}`;
     const bookingLines = lines.slice(1);
 
     if (!bookingLines.length) {
-      return `❓ Manda assim:\n*agenda massa DD/MM*\nNome Numero HHh\nNome Numero HHh`;
+      return `❓ Manda assim:\n*agenda massa*\nNome Numero HHh DD/MM\nNome Numero HHh DD/MM`;
     }
 
     const results = [];
     for (const line of bookingLines) {
+      const lineNorm = line.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+      const lineDate = extractDate(lineNorm) || defaultDate;
+      const [, lm, ld] = lineDate.split("-");
+      const dateLabel = `${ld}/${lm}`;
+
       const timeMatch = line.match(/\b(\d{1,2})(?:h|:00)\b/i);
       if (!timeMatch) { results.push(`❓ "${line}" — não entendi o horário`); continue; }
       const horario = timeMatch[1].padStart(2, "0") + ":00";
@@ -511,6 +516,7 @@ async function processBarberCommand(text) {
       }
 
       const namePart = line
+        .replace(/\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?/g, "")
         .replace(/\b\d{8,13}\b/g, "")
         .replace(/\b\d{1,2}(?:h|:00)\b/gi, "")
         .replace(/\s+/g, " ").trim();
@@ -518,18 +524,17 @@ async function processBarberCommand(text) {
         ? namePart.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ")
         : "Cliente";
 
-      const existing = await getSlotInfo(date, horario);
-      if (!existing) { results.push(`❌ ${horario} — horário não existe`); continue; }
-      if (existing.status === "agendado") { results.push(`⚠️ ${horario} — já com *${existing.nome}*`); continue; }
+      const existing = await getSlotInfo(lineDate, horario);
+      if (!existing) { results.push(`❌ ${dateLabel} ${horario} — horário não existe`); continue; }
+      if (existing.status === "agendado") { results.push(`⚠️ ${dateLabel} ${horario} — já com *${existing.nome}*`); continue; }
 
-      const booked = await bookSlotAdmin(date, horario, clientName, clientPhone);
+      const booked = await bookSlotAdmin(lineDate, horario, clientName, clientPhone);
       results.push(booked
-        ? `✅ ${horario} — ${clientName}${!hasPhone ? " (sem número)" : ""}`
-        : `❌ ${horario} — falhou`);
+        ? `✅ ${dateLabel} ${horario} — ${clientName}${!hasPhone ? " (sem número)" : ""}`
+        : `❌ ${dateLabel} ${horario} — falhou`);
     }
 
-    const [, m, d] = date.split("-");
-    return `📅 *Agendamentos ${d}/${m}*\n\n${results.join("\n")}`;
+    return `📋 *Agendamentos em massa*\n\n${results.join("\n")}`;
   }
 
   const hasBook =
@@ -631,7 +636,7 @@ async function processBarberCommand(text) {
     normalized.includes("como usar");
 
   if (hasHelp) {
-    return `🛠️ *Comandos disponíveis*\n\n*📅 Ver agenda:*\n"agenda hoje"\n"agenda amanhã"\n"agenda 15/06"\n\n*🔒 Bloquear:*\n"bloqueia 15/06"\n"bloqueia 16h do dia 15/06"\n"bloqueia 15/06 ao 22/06"\n\n*🔓 Desbloquear:*\n"desbloqueia 15/06"\n"desbloqueia 16h do dia 15/06"\n\n*👤 Agendar cliente:*\n"marca João dia 15/06 às 14h"\n\n*👥 Agendar vários de uma vez:*\n"agenda massa 15/06"\nJoão 21999991234 14h\nMaria 15h\nPedro 21999995678 16h\n\n*❌ Cancelar:*\n"cancela 15/06 às 14h"\n\n*🔄 Reagendar:*\n"passa João de 15/06 14h para 16/06 10h"\n\n*🗑️ Zerar mês atual:*\n"zerar agenda" → confirmar reset\n\n*🗑️🗑️ Zerar tudo:*\n"zerar tudo" → confirmar tudo\n\n*🤝 Encerrar atendimento direto:*\n"encerrar João" ou "encerrar 5511999999999"`;
+    return `🛠️ *Comandos disponíveis*\n\n*📅 Ver agenda:*\n"agenda hoje"\n"agenda amanhã"\n"agenda 15/06"\n\n*🔒 Bloquear:*\n"bloqueia 15/06"\n"bloqueia 16h do dia 15/06"\n"bloqueia 15/06 ao 22/06"\n\n*🔓 Desbloquear:*\n"desbloqueia 15/06"\n"desbloqueia 16h do dia 15/06"\n\n*👤 Agendar cliente:*\n"marca João dia 15/06 às 14h"\n\n*👥 Agendar vários de uma vez:*\n"agenda massa"\nJoão 21999991234 14h 15/06\nMaria 15h 15/06\nPedro 21999995678 16h 16/06\n\n*❌ Cancelar:*\n"cancela 15/06 às 14h"\n\n*🔄 Reagendar:*\n"passa João de 15/06 14h para 16/06 10h"\n\n*🗑️ Zerar mês atual:*\n"zerar agenda" → confirmar reset\n\n*🗑️🗑️ Zerar tudo:*\n"zerar tudo" → confirmar tudo\n\n*🤝 Encerrar atendimento direto:*\n"encerrar João" ou "encerrar 5511999999999"`;
   }
 
   // Barbeiro encerra handoff: "encerrar 5511999999999" ou "encerrar João"
