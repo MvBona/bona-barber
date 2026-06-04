@@ -648,7 +648,15 @@ function renderMonth(data) {
     const isPast = ds < todayStr;
     const isToday = ds === todayStr;
     const slots = slotMap[ds] || [];
-    const livre = slots.filter(s => s.status === 'livre').length;
+    const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+    const livre = slots.filter(s => {
+      if (s.status !== 'livre') return false;
+      if (isToday) {
+        const [h, m] = s.horario.split(':').map(Number);
+        return (h * 60 + m) > nowMinutes;
+      }
+      return true;
+    }).length;
     const total = slots.length;
 
     let barColor = '#333', barW = 0;
