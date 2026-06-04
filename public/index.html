@@ -376,7 +376,6 @@
     <div class="modal-sub" id="modal-sub"></div>
     <div class="modal-warning" id="modal-warning" style="display:none"></div>
     <input id="book-nome" class="modal-input" type="text" autocomplete="name">
-    <input id="book-phone" class="modal-input" type="tel" autocomplete="tel">
     <div id="modal-body"></div>
     <div id="book-msg" class="modal-msg"></div>
   </div>
@@ -720,8 +719,6 @@ function openBooking(date, horario) {
   document.getElementById('modal-warning').style.display = urgent ? 'block' : 'none';
   document.getElementById('book-nome').value = '';
   document.getElementById('book-nome').placeholder = t().nomePh;
-  document.getElementById('book-phone').value = '';
-  document.getElementById('book-phone').placeholder = t().phonePh;
   document.getElementById('book-msg').textContent = '';
   document.getElementById('book-msg').className = 'modal-msg';
   document.getElementById('modal-body').innerHTML = `
