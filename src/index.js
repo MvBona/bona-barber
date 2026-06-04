@@ -649,6 +649,74 @@ async function processBarberCommand(text) {
     return `🛠️ *Comandos disponíveis*\n\n*📅 Ver agenda:*\n"agenda hoje"\n"agenda amanhã"\n"agenda 15/06"\n\n*🔒 Bloquear:*\n"bloqueia 15/06"\n"bloqueia 16h do dia 15/06"\n"bloqueia 15/06 ao 22/06"\n\n*🔓 Desbloquear:*\n"desbloqueia 15/06"\n"desbloqueia 16h do dia 15/06"\n\n*👤 Agendar cliente:*\n"marca João dia 15/06 às 14h"\n\n*👥 Agendar vários de uma vez:*\n"agenda massa"\nJoão 21999991234 14h 15/06\nMaria 15h 15/06\nPedro 21999995678 16h 16/06\n\n*❌ Cancelar:*\n"cancela 15/06 às 14h"\n\n*🔄 Reagendar:*\n"passa João de 15/06 14h para 16/06 10h"\n\n*🗑️ Zerar mês atual:*\n"zerar agenda" → confirmar reset\n\n*🗑️🗑️ Zerar tudo:*\n"zerar tudo" → confirmar tudo\n\n*🤝 Encerrar atendimento direto:*\n"encerrar João" ou "encerrar 5511999999999"`;
   }
 
+  // Ajuda contextual — barbeiro pergunta como fazer algo de forma natural
+  const isAskingHow =
+    normalized.includes("como") ||
+    normalized.includes("esqueci") ||
+    normalized.includes("nao lembro") ||
+    normalized.includes("me explica") ||
+    normalized.includes("me mostra") ||
+    normalized.includes("nao sei");
+
+  if (isAskingHow) {
+    const sobreBloquear =
+      normalized.includes("bloquear") || normalized.includes("bloqueia") ||
+      normalized.includes("bloqueo") || normalized.includes("folga") ||
+      normalized.includes("fechar dia") || normalized.includes("fecha dia") ||
+      normalized.includes("desbloquear") || normalized.includes("desbloqueia") ||
+      normalized.includes("liberar") || normalized.includes("libera");
+    const sobreCancelar = normalized.includes("cancel");
+    const sobreReagendar =
+      normalized.includes("reagend") || normalized.includes("remarca") ||
+      (normalized.includes("muda") && normalized.includes("horario")) ||
+      (normalized.includes("pass") && normalized.includes("para"));
+    const sobreMassa =
+      normalized.includes("massa") || normalized.includes("varios") ||
+      normalized.includes("multiplos") || normalized.includes("lista de");
+    const sobreVer =
+      (normalized.includes("ver") || normalized.includes("visualiz") ||
+       normalized.includes("conferi") || normalized.includes("consulta")) &&
+      normalized.includes("agenda");
+    const sobreAgendar =
+      !sobreMassa && !sobreVer &&
+      (normalized.includes("agenda") || normalized.includes("marca") || normalized.includes("reserva"));
+    const sobreEncerrar =
+      normalized.includes("encerr") || normalized.includes("atendimento direto") ||
+      normalized.includes("handoff");
+    const sobreZerar =
+      normalized.includes("zerar") || normalized.includes("resetar") ||
+      normalized.includes("apagar tudo");
+
+    if (sobreBloquear) {
+      return `🔒 *Como bloquear / liberar*\n\n*Dia inteiro:*\n"bloqueia hoje"\n"bloqueia 15/06"\n\n*Horário específico:*\n"bloqueia 14h do dia 15/06"\n\n*Período (ex: férias):*\n"bloqueia 15/06 ao 22/06"\n\n*Liberar de volta:*\n"desbloqueia 15/06"\n"desbloqueia 14h do dia 15/06"`;
+    }
+    if (sobreCancelar) {
+      return `❌ *Como cancelar agendamento*\n\n"cancela 15/06 às 14h"\n\nO cliente recebe aviso automático pelo WhatsApp.`;
+    }
+    if (sobreReagendar) {
+      return `🔄 *Como reagendar cliente*\n\n"passa João de 15/06 14h para 16/06 10h"\n\nO cliente recebe aviso automático.`;
+    }
+    if (sobreMassa) {
+      waitingForMassBooking.add(BARBERSHOP_PHONE);
+      return `👥 *Agendamento em massa*\n\nManda os agendamentos, um por linha:\n\n*Nome Número HHh DD/MM*\n\nExemplo:\nJoão 21999991234 14h 04/06\nMaria 15h 05/06\nPedro 21999995678 16h 05/06\n\n💡 Número é opcional — sem número o cliente não recebe lembrete.`;
+    }
+    if (sobreVer) {
+      return `📅 *Como ver a agenda*\n\n"agenda hoje"\n"agenda amanhã"\n"agenda 15/06"`;
+    }
+    if (sobreAgendar) {
+      return `👤 *Como agendar cliente*\n\n*Com número:*\n"marca João 21999991234 dia 15/06 às 14h"\n\n*Sem número:*\n"marca João dia 15/06 às 14h"\n↳ Bot pede o número depois\n\n*Ver agenda do dia primeiro:*\n"agenda hoje" ou "agenda 15/06"`;
+    }
+    if (sobreEncerrar) {
+      return `🤝 *Como encerrar atendimento direto*\n\n"encerrar João"\n"encerrar 5521999999999"`;
+    }
+    if (sobreZerar) {
+      return `🗑️ *Como zerar a agenda*\n\n*Mês atual:*\n"zerar agenda" → depois "confirmar reset"\n\n*Tudo:*\n"zerar tudo" → depois "confirmar tudo"\n\n⚠️ Lista os agendamentos antes de apagar.`;
+    }
+
+    // Pergunta genérica sem tópico identificado
+    return `❓ Sobre o que você quer saber?\n\n📅 Ver agenda\n🔒 Bloquear / liberar dia\n👤 Agendar cliente\n👥 Agendar vários de uma vez\n❌ Cancelar agendamento\n🔄 Reagendar cliente\n\nManda *ajuda* para ver tudo com exemplos.`;
+  }
+
   // Barbeiro encerra handoff: "encerrar 5511999999999" ou "encerrar João"
   const encerrarMatch = text.match(/^encerrar\s+(.+)$/i);
   if (encerrarMatch) {
