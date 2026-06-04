@@ -72,6 +72,7 @@ const BARBERSHOP_PHONE = process.env.BARBERSHOP_PHONE;
 
 const debounceTimers = new Map();
 const pendingMessages = new Map();
+const lastMessageTime = new Map();
 // Agendamento pendente aguardando nome válido: phone → { data, horario }
 const waitingForNameToBook = new Map();
 // Cancelamento aguardando motivo: phone → { data, horario }
@@ -109,6 +110,13 @@ function isValidName(name) {
 }
 
 async function sendMessage(phone, message) {
+  const last = lastMessageTime.get(phone);
+  if (last) {
+    const wait = 2500 - (Date.now() - last);
+    if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  }
+  lastMessageTime.set(phone, Date.now());
+
   const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`;
   const response = await fetch(url, {
     method: "POST",
@@ -158,18 +166,23 @@ async function sendWeeklySummary() {
 async function sendUnconfirmedNotifications(tipo, minutosGraca) {
   try {
     const appointments = await getUnconfirmedReminders(tipo, minutosGraca);
+    if (appointments.length === 0) return;
+
+    const prazo = tipo === "24h" ? "2h" : "20min";
+    const linhas = appointments.map(appt =>
+      `👤 ${appt.nome || "Cliente"} — ${fmtDate(appt.data)} às ${appt.horario} — 📞 ${appt.telefone}`
+    );
+    const msg =
+      `⚠️ *Sem confirmação (${prazo}) — ${appointments.length} cliente${appointments.length !== 1 ? "s" : ""}*\n\n` +
+      linhas.join("\n") +
+      `\n\nLembrete de ${tipo} enviado mas sem resposta.`;
+
+    await notifyBarber(msg);
+
     for (const appt of appointments) {
-      const prazo = tipo === "24h" ? "2h" : "20min";
-      const msg =
-        `⚠️ *Sem confirmação (${prazo})*\n` +
-        `👤 ${appt.nome || "Cliente"}\n` +
-        `📞 ${appt.telefone}\n` +
-        `📅 ${fmtDate(appt.data)} às ${appt.horario}\n` +
-        `Lembrete de ${tipo} enviado mas sem resposta.`;
-      await notifyBarber(msg);
       await appendLembretes(appt.sheetName, appt.rowIndex, appt.lembretes, `${tipo}-aviso`);
-      console.log(`Aviso sem-resposta (${tipo}) enviado para barbeiro — ${appt.nome} ${appt.telefone}`);
     }
+    console.log(`Aviso sem-resposta (${tipo}) enviado para barbeiro — ${appointments.length} cliente(s)`);
   } catch (error) {
     console.error(`Erro ao verificar sem-resposta ${tipo}:`, error.message);
   }
@@ -718,14 +731,12 @@ async function processAccumulatedMessages(phone, name) {
       waitingForNameToBook.delete(phone);
       const booked = await bookSlot(data, horario, nomeLimpo, phone);
       if (!booked) {
-        await sendMessage(
-          phone,
-          tr(phone, "slotTaken"),
-        );
+        await sendMessage(phone, tr(phone, "slotTaken"));
       } else {
-        await sendMessage(phone, tr(phone, "bookingConfirm", nomeLimpo, horario));
         const lang1 = clientLanguages.get(phone) || "pt";
-        if (lang1 !== "pt") await sendMessage(phone, tr(phone, "langNote"));
+        const confirmMsg = tr(phone, "bookingConfirm", nomeLimpo, horario);
+        const fullMsg = lang1 !== "pt" ? `${confirmMsg}\n\n${tr(phone, "langNote")}` : confirmMsg;
+        await sendMessage(phone, fullMsg);
         await notifyBarber(
           `✅ *Novo agendamento*\n👤 ${nomeLimpo}\n📅 ${fmtDate(data)}\n🕐 ${horario}`,
         );
@@ -817,14 +828,11 @@ async function processAccumulatedMessages(phone, name) {
       } else {
         const booked = await bookSlot(result.data, result.horario, name, phone);
         if (!booked) {
-          await sendMessage(
-            phone,
-            tr(phone, "slotTaken"),
-          );
+          await sendMessage(phone, tr(phone, "slotTaken"));
         } else {
-          await sendMessage(phone, result.resposta);
           const lang2 = clientLanguages.get(phone) || "pt";
-          if (lang2 !== "pt") await sendMessage(phone, tr(phone, "langNote"));
+          const resposta = lang2 !== "pt" ? `${result.resposta}\n\n${tr(phone, "langNote")}` : result.resposta;
+          await sendMessage(phone, resposta);
           await notifyBarber(
             `✅ *Novo agendamento*\n👤 ${name}\n📅 ${fmtDate(result.data)}\n🕐 ${result.horario}`,
           );
