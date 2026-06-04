@@ -40,6 +40,7 @@ const {
   getClientName,
   getWeeklySummary,
   getSlotsForDates,
+  setCustomHours,
 } = require("./sheets");
 
 console.log("carregando ai...");
@@ -83,6 +84,8 @@ const waitingForCancelReason = new Map();
 const waitingForClientPhone = new Map();
 // Barbeiro acionou "agenda em massa" e está aguardando as linhas
 const waitingForMassBooking = new Set();
+// Barbeiro informou horário diferente e está aguardando o range: phone → [date]
+const waitingForCustomHours = new Map();
 
 function fmtDate(iso) {
   const [, m, d] = iso.split("-");
@@ -649,6 +652,67 @@ async function processBarberCommand(text) {
     return `🛠️ *Comandos disponíveis*\n\n*📅 Ver agenda:*\n"agenda hoje"\n"agenda amanhã"\n"agenda 15/06"\n\n*🔒 Bloquear:*\n"bloqueia 15/06"\n"bloqueia 16h do dia 15/06"\n"bloqueia 15/06 ao 22/06"\n\n*🔓 Desbloquear:*\n"desbloqueia 15/06"\n"desbloqueia 16h do dia 15/06"\n\n*👤 Agendar cliente:*\n"marca João dia 15/06 às 14h"\n\n*👥 Agendar vários de uma vez:*\n"agenda massa"\nJoão 21999991234 14h 15/06\nMaria 15h 15/06\nPedro 21999995678 16h 16/06\n\n*❌ Cancelar:*\n"cancela 15/06 às 14h"\n\n*🔄 Reagendar:*\n"passa João de 15/06 14h para 16/06 10h"\n\n*🗑️ Zerar mês atual:*\n"zerar agenda" → confirmar reset\n\n*🗑️🗑️ Zerar tudo:*\n"zerar tudo" → confirmar tudo\n\n*🤝 Encerrar atendimento direto:*\n"encerrar João" ou "encerrar 5511999999999"`;
   }
 
+  // Horário diferente num dia ou período específico
+  const hasDifferentHours =
+    (normalized.includes("horario diferente") ||
+     normalized.includes("horario vai ser diferente") ||
+     normalized.includes("vai mudar o horario") ||
+     normalized.includes("horario especial") ||
+     normalized.includes("abre diferente") ||
+     normalized.includes("vai ser diferente")) &&
+    (normalized.includes("hoje") || normalized.includes("amanha") || !!extractDate(normalized));
+
+  if (hasDifferentHours) {
+    function extractMultipleDates(str) {
+      const fmt = d =>
+        `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+      const dates = new Set();
+
+      if (str.includes("depois de amanha") || str.includes("depois amanha")) {
+        const t = new Date(now); t.setDate(now.getDate() + 2); dates.add(fmt(t));
+      }
+      if (str.includes("amanha")) {
+        const t = new Date(now); t.setDate(now.getDate() + 1); dates.add(fmt(t));
+      }
+      if (str.includes("hoje")) dates.add(fmt(now));
+
+      // Período: "DD/MM ao DD/MM"
+      const period = extractPeriod(str);
+      if (period) {
+        const start = new Date(period.inicio + "T00:00:00");
+        const end   = new Date(period.fim   + "T00:00:00");
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          if (d.getDay() !== 0) dates.add(fmt(d));
+        }
+        return [...dates];
+      }
+
+      // Múltiplas datas: "DD/MM e DD/MM"
+      const dateRegex = /\b(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\b/g;
+      let m;
+      while ((m = dateRegex.exec(str)) !== null) {
+        const d = m[1].padStart(2,"0"), mo = m[2].padStart(2,"0"), y = m[3] || currentYear;
+        if (+m[1] >= 1 && +m[1] <= 31 && +m[2] >= 1 && +m[2] <= 12)
+          dates.add(`${y}-${mo}-${d}`);
+      }
+
+      if (dates.size > 0) return [...dates];
+      const single = extractDate(str);
+      return single ? [single] : [];
+    }
+
+    const dates = extractMultipleDates(normalized);
+    if (dates.length === 0) {
+      return `❓ Qual dia vai ter horário diferente?\nEx: "Amanhã vai ser horário diferente"`;
+    }
+
+    waitingForCustomHours.set(BARBERSHOP_PHONE, dates);
+    const labels = dates.map(date => { const [,m,d] = date.split("-"); return `${d}/${m}`; }).join(", ");
+    return dates.length === 1
+      ? `🕐 Qual vai ser o horário do dia ${labels}?\n\nEx: "das 8h às 17h"`
+      : `🕐 Qual vai ser o horário para esses dias: *${labels}*?\n\nEx: "das 8h às 17h"`;
+  }
+
   // Ajuda contextual — barbeiro pergunta como fazer algo de forma natural
   const isAskingHow =
     normalized.includes("como") ||
@@ -821,6 +885,31 @@ async function processAccumulatedMessages(phone, name) {
       waitingForMassBooking.delete(phone);
       const massResult = await processBarberCommand("agenda massa\n" + combinedText);
       await sendMessage(phone, massResult || "❌ Não consegui processar. Tenta de novo.");
+      return;
+    }
+
+    if (waitingForCustomHours.has(phone)) {
+      const dates = waitingForCustomHours.get(phone);
+      waitingForCustomHours.delete(phone);
+      const match = combinedText.match(/(\d{1,2})\s*h?\s*(?:às|as|ate|até|a)\s*(\d{1,2})\s*h?/i);
+      if (!match) {
+        await sendMessage(phone, `❌ Não entendi. Manda assim: "das 8h às 17h"`);
+        return;
+      }
+      const inicio = parseInt(match[1]);
+      const fim = parseInt(match[2]);
+      if (inicio >= fim || inicio < 5 || fim > 23) {
+        await sendMessage(phone, `❌ Horário inválido. Ex: "das 8h às 17h"`);
+        return;
+      }
+      const lines = [];
+      for (const date of dates) {
+        const { warnings } = await setCustomHours(date, inicio, fim);
+        const [, m, d] = date.split("-");
+        lines.push(`✅ ${d}/${m} — das ${inicio}h às ${fim}h`);
+        lines.push(...warnings);
+      }
+      await sendMessage(phone, `🕐 *Horário atualizado*\n\n${lines.join("\n")}`);
       return;
     }
 
@@ -1281,6 +1370,7 @@ if (CRONS_ENABLED) {
       waitingForNameToBook.clear();
       waitingForClientPhone.clear();
       waitingForMassBooking.clear();
+      waitingForCustomHours.clear();
       console.log("Histórico limpo!");
     },
     { timezone: "America/Sao_Paulo" },

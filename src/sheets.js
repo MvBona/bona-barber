@@ -661,6 +661,69 @@ async function getSlotsForDates(dates) {
   };
 }
 
+async function setCustomHours(date, inicio, fim) {
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+  const sheetName = getSheetName(date);
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A:G`,
+  });
+  const rows = response.data.values || [];
+
+  const desiredSlots = new Set();
+  for (let h = inicio; h <= fim; h++) {
+    desiredSlots.add(`${String(h).padStart(2, "0")}:00`);
+  }
+
+  const existingHorarios = new Set();
+  const updates = [];
+  const warnings = [];
+
+  rows.slice(1).forEach((row, i) => {
+    if (row[0] !== date) return;
+    const sheetRow = i + 2;
+    const horario = row[1];
+    const status = row[4] || "livre";
+    existingHorarios.add(horario);
+
+    if (desiredSlots.has(horario)) {
+      if (status === "bloqueado") {
+        updates.push({ range: `${sheetName}!E${sheetRow}`, values: [["livre"]] });
+      }
+    } else {
+      if (status === "agendado") {
+        warnings.push(`⚠️ ${horario} — *${row[2]}* está agendado fora do novo horário`);
+      } else if (status !== "bloqueado") {
+        updates.push({ range: `${sheetName}!E${sheetRow}`, values: [["bloqueado"]] });
+      }
+    }
+  });
+
+  const newSlots = [...desiredSlots]
+    .sort()
+    .filter(h => !existingHorarios.has(h))
+    .map(h => [date, h, "", "", "livre"]);
+
+  if (updates.length > 0) {
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: { valueInputOption: "RAW", data: updates },
+    });
+  }
+  if (newSlots.length > 0) {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${sheetName}!A:E`,
+      valueInputOption: "RAW",
+      requestBody: { values: newSlots },
+    });
+  }
+
+  return { warnings };
+}
+
 module.exports = {
   getAvailableSlots,
   bookSlot,
@@ -681,4 +744,5 @@ module.exports = {
   getClientName,
   getWeeklySummary,
   getSlotsForDates,
+  setCustomHours,
 };
