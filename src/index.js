@@ -478,6 +478,60 @@ async function processBarberCommand(text) {
     }
   }
 
+  const hasMassBooking =
+    normalized.includes("agenda massa") ||
+    normalized.includes("em massa") ||
+    normalized.includes("agendamento em massa");
+
+  if (hasMassBooking) {
+    const lines = text.trim().split("\n").map(l => l.trim()).filter(Boolean);
+    const triggerNorm = lines[0].toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    const date = extractDate(triggerNorm) ||
+      `${currentYear}-${currentMonth}-${String(now.getDate()).padStart(2, "0")}`;
+    const bookingLines = lines.slice(1);
+
+    if (!bookingLines.length) {
+      return `❓ Manda assim:\n*agenda massa DD/MM*\nNome Numero HHh\nNome Numero HHh`;
+    }
+
+    const results = [];
+    for (const line of bookingLines) {
+      const timeMatch = line.match(/\b(\d{1,2})(?:h|:00)\b/i);
+      if (!timeMatch) { results.push(`❓ "${line}" — não entendi o horário`); continue; }
+      const horario = timeMatch[1].padStart(2, "0") + ":00";
+
+      const semData = line.replace(/\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?/g, "");
+      const phoneMatch = semData.match(/\b(\d{8,13})\b/);
+      let clientPhone = BARBERSHOP_PHONE;
+      let hasPhone = false;
+      if (phoneMatch) {
+        let num = phoneMatch[1];
+        if (!num.startsWith("55") && num.length <= 11) num = "55" + num;
+        if (num.length >= 10 && num.length <= 13) { clientPhone = num; hasPhone = true; }
+      }
+
+      const namePart = line
+        .replace(/\b\d{8,13}\b/g, "")
+        .replace(/\b\d{1,2}(?:h|:00)\b/gi, "")
+        .replace(/\s+/g, " ").trim();
+      const clientName = namePart
+        ? namePart.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ")
+        : "Cliente";
+
+      const existing = await getSlotInfo(date, horario);
+      if (!existing) { results.push(`❌ ${horario} — horário não existe`); continue; }
+      if (existing.status === "agendado") { results.push(`⚠️ ${horario} — já com *${existing.nome}*`); continue; }
+
+      const booked = await bookSlotAdmin(date, horario, clientName, clientPhone);
+      results.push(booked
+        ? `✅ ${horario} — ${clientName}${!hasPhone ? " (sem número)" : ""}`
+        : `❌ ${horario} — falhou`);
+    }
+
+    const [, m, d] = date.split("-");
+    return `📅 *Agendamentos ${d}/${m}*\n\n${results.join("\n")}`;
+  }
+
   const hasBook =
     normalized.includes("agenda") ||
     normalized.includes("marca") ||
@@ -577,7 +631,7 @@ async function processBarberCommand(text) {
     normalized.includes("como usar");
 
   if (hasHelp) {
-    return `🛠️ *Comandos disponíveis*\n\n*📅 Ver agenda:*\n"agenda hoje"\n"agenda amanhã"\n"agenda 15/06"\n\n*🔒 Bloquear:*\n"bloqueia 15/06"\n"bloqueia 16h do dia 15/06"\n"bloqueia 15/06 ao 22/06"\n\n*🔓 Desbloquear:*\n"desbloqueia 15/06"\n"desbloqueia 16h do dia 15/06"\n\n*👤 Agendar cliente:*\n"marca João dia 15/06 às 14h"\n\n*❌ Cancelar:*\n"cancela 15/06 às 14h"\n\n*🔄 Reagendar:*\n"passa João de 15/06 14h para 16/06 10h"\n\n*🗑️ Zerar mês atual:*\n"zerar agenda" → confirmar reset\n\n*🗑️🗑️ Zerar tudo:*\n"zerar tudo" → confirmar tudo\n\n*🤝 Encerrar atendimento direto:*\n"encerrar João" ou "encerrar 5511999999999"`;
+    return `🛠️ *Comandos disponíveis*\n\n*📅 Ver agenda:*\n"agenda hoje"\n"agenda amanhã"\n"agenda 15/06"\n\n*🔒 Bloquear:*\n"bloqueia 15/06"\n"bloqueia 16h do dia 15/06"\n"bloqueia 15/06 ao 22/06"\n\n*🔓 Desbloquear:*\n"desbloqueia 15/06"\n"desbloqueia 16h do dia 15/06"\n\n*👤 Agendar cliente:*\n"marca João dia 15/06 às 14h"\n\n*👥 Agendar vários de uma vez:*\n"agenda massa 15/06"\nJoão 21999991234 14h\nMaria 15h\nPedro 21999995678 16h\n\n*❌ Cancelar:*\n"cancela 15/06 às 14h"\n\n*🔄 Reagendar:*\n"passa João de 15/06 14h para 16/06 10h"\n\n*🗑️ Zerar mês atual:*\n"zerar agenda" → confirmar reset\n\n*🗑️🗑️ Zerar tudo:*\n"zerar tudo" → confirmar tudo\n\n*🤝 Encerrar atendimento direto:*\n"encerrar João" ou "encerrar 5511999999999"`;
   }
 
   // Barbeiro encerra handoff: "encerrar 5511999999999" ou "encerrar João"
