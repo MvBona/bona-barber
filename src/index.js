@@ -1121,6 +1121,7 @@ app.get("/api/config", (req, res) => {
     telefoneAdmin: config.telefoneAdmin,
     profissionais: (config.profissionais || []).map((p) => ({ id: p.id, nome: p.nome })),
     distribuicao: config.distribuicao || "auto",
+    diasFechado: config.diasFechado || [],
   });
 });
 

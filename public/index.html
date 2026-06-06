@@ -171,11 +171,24 @@
     .slot-row.livre:hover { background:rgba(76,175,125,.06); border-left-color:#6fcf97; }
 
     /* ── PROF FILTER ── */
-    .prof-filter { display:flex; gap:.5rem; justify-content:center; flex-wrap:wrap; padding:.75rem 1rem .5rem; border-bottom:1px solid var(--border); background:var(--bg2); }
-    .prof-filter .chip { font-size:.7rem; }
-    .prof-filter .chip.all { font-family:'Cinzel',serif; letter-spacing:.06em; }
+    .prof-filter { display:flex; gap:1.2rem; justify-content:center; align-items:center; padding:.85rem 1rem .7rem; border-bottom:1px solid var(--border); background:var(--bg2); }
+    .prof-avatar-btn { display:flex; flex-direction:column; align-items:center; gap:.35rem; cursor:pointer; background:none; border:none; padding:.3rem .5rem; border-radius:10px; transition:background .2s; }
+    .prof-avatar-btn:hover { background:var(--gold-dim); }
+    .prof-avatar { width:44px; height:44px; border-radius:50%; border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-family:'Cinzel',serif; font-weight:700; color:var(--muted); transition:all .2s; font-size:.95rem; background:var(--bg3); }
+    .prof-avatar.todos { font-size:.55rem; letter-spacing:.06em; }
+    .prof-avatar-btn.selected .prof-avatar { border-color:var(--gold); background:var(--gold-dim); color:var(--gold); }
+    .prof-name-label { font-size:.6rem; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-family:'Cinzel',serif; transition:color .2s; }
+    .prof-avatar-btn.selected .prof-name-label { color:var(--gold); }
+    /* ── PROF MODAL ── */
     .prof-modal-section { margin-bottom:.85rem; }
-    .prof-modal-chips { display:flex; flex-wrap:wrap; gap:.45rem; }
+    .prof-option-row { display:flex; align-items:center; gap:.75rem; padding:.6rem .85rem; border:1px solid var(--border); border-radius:8px; cursor:pointer; margin-bottom:.4rem; transition:all .18s; background:var(--bg3); }
+    .prof-option-row:hover { border-color:var(--gold); background:var(--gold-dim); }
+    .prof-option-row.selected { border-color:var(--gold); background:var(--gold-dim); }
+    .prof-option-avatar { width:34px; height:34px; border-radius:50%; background:var(--bg2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-family:'Cinzel',serif; font-size:.8rem; font-weight:700; color:var(--muted); flex-shrink:0; transition:all .18s; }
+    .prof-option-row.selected .prof-option-avatar { border-color:var(--gold); color:var(--gold); background:var(--gold-dim); }
+    .prof-option-name { font-size:.85rem; font-weight:500; color:var(--text); flex:1; letter-spacing:.02em; }
+    .prof-option-check { color:var(--gold); font-size:.75rem; opacity:0; transition:opacity .18s; }
+    .prof-option-row.selected .prof-option-check { opacity:1; }
     .whatsapp-btn { position:fixed; bottom:1.5rem; right:1.5rem; z-index:999; display:flex; align-items:center; gap:.6rem; background:#1a1a1a; border:1px solid var(--gold); color:var(--gold); text-decoration:none; padding:.7rem 1.2rem; border-radius:999px; font-family:'Cinzel',serif; font-size:.7rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; box-shadow:0 4px 20px rgba(0,0,0,.5); transition:background .2s, box-shadow .2s; }
     .whatsapp-btn:hover { background:var(--gold-dim); }
     .whatsapp-btn svg { width:18px; height:18px; fill:#25D366; flex-shrink:0; }
@@ -288,10 +301,18 @@ async function loadSiteConfig() {
       const filter = document.getElementById('prof-filter');
       filter.style.display = '';
       filter.className = 'prof-filter';
-      filter.innerHTML = `<button class="chip all selected" onclick="setProfFilter(null)">Todos</button>` +
-        siteConfig.profissionais.map(p =>
-          `<button class="chip" onclick="setProfFilter('${p.id}')">${p.nome}</button>`
-        ).join('');
+      let html = `<button class="prof-avatar-btn selected" onclick="setProfFilter(null)">
+        <div class="prof-avatar todos">TODOS</div>
+        <span class="prof-name-label">Todos</span>
+      </button>`;
+      for (const p of siteConfig.profissionais) {
+        const ini = p.nome.charAt(0).toUpperCase();
+        html += `<button class="prof-avatar-btn" onclick="setProfFilter('${p.id}')">
+          <div class="prof-avatar">${ini}</div>
+          <span class="prof-name-label">${p.nome}</span>
+        </button>`;
+      }
+      filter.innerHTML = html;
     }
 
     document.getElementById('wa-btn').href = `https://wa.me/${siteConfig.telefoneAdmin || ''}`;
@@ -351,23 +372,24 @@ function setLang(l) {
 let view = 'dia', navDate = new Date(), pollTimer = null;
 let activeProfId = null;
 let selectedProfIdModal = null;
+let _autoAdvanceCount = 0;
 const POLL_MS = 60000;
 
 function setProfFilter(id) {
   activeProfId = id;
-  document.querySelectorAll('#prof-filter .chip').forEach(c => {
-    const onclick = c.getAttribute('onclick') || '';
+  document.querySelectorAll('#prof-filter .prof-avatar-btn').forEach(btn => {
+    const onclick = btn.getAttribute('onclick') || '';
     const isThis = id === null ? onclick.includes('null') : onclick.includes(`'${id}'`);
-    c.classList.toggle('selected', isThis);
+    btn.classList.toggle('selected', isThis);
   });
   load();
 }
 
 function selectProfModal(id) {
   selectedProfIdModal = id;
-  document.querySelectorAll('.prof-modal-chips .chip').forEach(c => {
-    const onclick = c.getAttribute('onclick') || '';
-    c.classList.toggle('selected', onclick.includes(`'${id}'`));
+  document.querySelectorAll('.prof-option-row').forEach(r => {
+    const onclick = r.getAttribute('onclick') || '';
+    r.classList.toggle('selected', onclick.includes(`'${id}'`));
   });
 }
 
@@ -415,13 +437,18 @@ function render(data) {
 /* ── DIA ── */
 function renderDay(data) {
   const day = data.dates[0];
-  if (!day) { document.getElementById('content').innerHTML = `<div class="loading">${t().noData}</div>`; return; }
+  if (!day) {
+    autoAdvance(); return;
+  }
 
   const todayStr = FMT(new Date()), isPast = day.date < todayStr, isToday = day.date === todayStr;
   const visible = isToday
     ? day.slots.filter(s => { const [h,m] = s.horario.split(':').map(Number); const d = new Date(); d.setHours(h,m,0,0); return d > new Date(); })
     : day.slots;
-  if (isToday && !visible.length) { shiftDay(1); return; }
+  // Auto-avança: hoje sem mais slots, ou dia sem nenhum livre (bloqueado total)
+  const hasLivre = visible.some(s => s.status === 'livre');
+  if (!hasLivre) { autoAdvance(); return; }
+  _autoAdvanceCount = 0;
 
   const livre = isPast ? 0 : visible.filter(s => s.status === 'livre').length;
   const [,mm,dd] = day.date.split('-');
@@ -462,7 +489,20 @@ function renderDay(data) {
 }
 
 function shiftDay(delta) {
-  navDate = new Date(navDate); navDate.setDate(navDate.getDate() + delta); load();
+  _autoAdvanceCount = 0; // navegação manual reseta o auto-advance
+  navDate = new Date(navDate);
+  const closed = siteConfig?.diasFechado || [];
+  do { navDate.setDate(navDate.getDate() + delta); } while (closed.includes(navDate.getDay()));
+  load();
+}
+
+function autoAdvance() {
+  if (_autoAdvanceCount >= 30) { _autoAdvanceCount = 0; return; }
+  _autoAdvanceCount++;
+  navDate = new Date(navDate);
+  const closed = siteConfig?.diasFechado || [];
+  do { navDate.setDate(navDate.getDate() + 1); } while (closed.includes(navDate.getDay()));
+  load();
 }
 
 /* ── SEMANA ── */
@@ -593,13 +633,18 @@ function renderBookBtn() {
 
   let profSelectorHtml = '';
   if (showProfSelector) {
-    const chips = bookingData.profDisp.map(pid => {
+    const rows = bookingData.profDisp.map(pid => {
       const prof = siteConfig.profissionais.find(p => p.id === pid);
       if (!prof) return '';
+      const ini = prof.nome.charAt(0).toUpperCase();
       const isSel = pid === selectedProfIdModal;
-      return `<button class="chip${isSel ? ' selected' : ''}" onclick="selectProfModal('${pid}')">${prof.nome}</button>`;
+      return `<div class="prof-option-row${isSel ? ' selected' : ''}" onclick="selectProfModal('${pid}')">
+        <div class="prof-option-avatar">${ini}</div>
+        <span class="prof-option-name">${prof.nome}</span>
+        <span class="prof-option-check">✓</span>
+      </div>`;
     }).join('');
-    profSelectorHtml = `<div class="prof-modal-section"><div class="service-label">Profissional</div><div class="prof-modal-chips">${chips}</div></div>`;
+    profSelectorHtml = `<div class="prof-modal-section"><div class="service-label">Profissional</div>${rows}</div>`;
   }
 
   document.getElementById('modal-body').innerHTML = `
