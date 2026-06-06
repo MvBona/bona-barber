@@ -680,7 +680,7 @@ function handleWaBook(e) {
     ? (siteConfig?.profissionais?.find(p => p.id === effProfId)?.nome || null)
     : null;
   const msg = t().waBookMsg(dd, mm, bookingData.horario, nome, servicos, profNome);
-  const phone = siteConfig?.telefoneAdmin || '';
+  const phone = siteConfig?.telefoneAgente || siteConfig?.telefoneAdmin || '';
   this.href = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
   setTimeout(() => closeModal(), 300);
 }

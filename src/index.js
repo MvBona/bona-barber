@@ -1116,6 +1116,7 @@ app.get("/api/config", (req, res) => {
     corPrimaria: config.corPrimaria,
     logo: config.logo,
     logoEmoji: config.logoEmoji || null,
+    telefoneAgente: config.telefoneAgente || config.telefoneAdmin,
     servicos: config.servicos,
     expediente: config.expediente,
     pagamento: config.pagamento,

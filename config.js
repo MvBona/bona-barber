@@ -3,6 +3,7 @@ module.exports = {
   botName: "Fio",
   adminAlias: "barbeiro",
   telefoneAdmin: "595973413527",
+  telefoneAgente: "5545920026026", // número do WhatsApp do bot
 
   timezone: "America/Sao_Paulo",
   idiomas: ["pt", "es"],
