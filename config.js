@@ -29,7 +29,7 @@ module.exports = {
 
   corPrimaria: "#b5272e",
   subtitulo: "Barbiere · Agenda Online",
-  logo: "logo.jpeg",
+  logoEmoji: "🇮🇹",
 
   cancelamentoMinHoras: 2,
   maxAgendamentosPorDia: 2,

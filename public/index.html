@@ -47,6 +47,7 @@
     .lang-toggle span { font-family:'Cinzel',serif; font-size:.55rem; font-weight:700; letter-spacing:.08em; color:var(--text); }
     .lang-divider { width:1px; height:18px; background:var(--border); }
     header img { width:120px; height:120px; object-fit:contain; border-radius:12px; margin-bottom:.8rem; }
+    .logo-emoji { font-size:72px; line-height:1; margin-bottom:.8rem; display:block; }
     header h1 { font-family:'Cinzel',serif; font-size:2rem; font-weight:900; color:var(--gold); letter-spacing:.08em; }
     header p { color:var(--muted); font-size:.65rem; letter-spacing:.35em; text-transform:uppercase; margin-top:.4rem; }
     .gold-line { width:60px; height:2px; background:var(--gold); margin:.8rem auto 0; border-radius:2px; opacity:.6; }
@@ -277,9 +278,10 @@ async function loadSiteConfig() {
     document.getElementById('site-sub').textContent = siteConfig.subtitulo || '';
     document.getElementById('footer-name').textContent = siteConfig.nome;
 
-    if (siteConfig.logo) {
-      document.getElementById('header-logo').innerHTML =
-        `<img src="/${siteConfig.logo}" alt="${siteConfig.nome}">`;
+    if (siteConfig.logoEmoji) {
+      document.getElementById('header-logo').innerHTML = `<span class="logo-emoji">${siteConfig.logoEmoji}</span>`;
+    } else if (siteConfig.logo) {
+      document.getElementById('header-logo').innerHTML = `<img src="/${siteConfig.logo}" alt="${siteConfig.nome}">`;
     }
 
     if (siteConfig.corPrimaria) {
@@ -479,7 +481,9 @@ function renderDay(data) {
     for (const s of slotsToShow) {
       const cls = isPast ? 'passado' : (s.status === 'agendado' ? 'ocupado' : s.status);
       const lbl = isPast ? t().encerrado : (s.status === 'livre' ? t().disponivel : s.status === 'bloqueado' ? t().bloqueado : t().ocupado);
-      const profDisp = s.profissionaisDisponiveis ? JSON.stringify(s.profissionaisDisponiveis) : 'null';
+      const profDisp = s.profissionaisDisponiveis?.length
+        ? JSON.stringify(s.profissionaisDisponiveis).replace(/"/g, "'")
+        : 'null';
       const click = cls === 'livre' ? `onclick="openBooking('${day.date}','${s.horario}',${profDisp})"` : '';
       html += `<div class="slot-row ${cls}" ${click}><div class="sdot"></div><div class="stime">${s.horario}</div><div class="slabel">${lbl}</div></div>`;
     }
@@ -524,7 +528,9 @@ function renderWeek(data) {
       const slotMin = h*60+m;
       const isPastSlot = isPast || (day.date===todayStr && slotMin<=nowMin);
       const cls = isPastSlot ? 'passado' : (s.status==='agendado' ? 'ocupado' : s.status);
-      const profDisp = s.profissionaisDisponiveis ? JSON.stringify(s.profissionaisDisponiveis) : 'null';
+      const profDisp = s.profissionaisDisponiveis?.length
+        ? JSON.stringify(s.profissionaisDisponiveis).replace(/"/g, "'")
+        : 'null';
       const click = cls==='livre' ? `onclick="openBooking('${day.date}','${s.horario}',${profDisp})"` : '';
       html += `<div class="wslot ${cls}" ${click}>${s.horario}</div>`;
     }
@@ -599,7 +605,8 @@ function openBooking(date, horario, profDisp) {
   const diffMin = (slotTime - now) / (1000*60);
 
   // profDisp: array of available profId strings, or null (filtered/single-prof mode)
-  const resolvedProfs = profDisp || (activeProfId ? [activeProfId] : null);
+  const allProfIds = (siteConfig?.profissionais || []).map(p => p.id);
+  const resolvedProfs = profDisp || (activeProfId ? [activeProfId] : (allProfIds.length > 1 ? allProfIds : null));
   selectedProfIdModal = activeProfId || (resolvedProfs?.length === 1 ? resolvedProfs[0] : null);
   bookingData = { date, horario, profDisp: resolvedProfs };
   document.getElementById('modal-title').textContent = t().agendar;
@@ -667,8 +674,10 @@ function handleWaBook(e) {
   }
   const [,mm,dd] = bookingData.date.split('-');
   const servicos = getSelectedServices();
-  const profNome = selectedProfIdModal
-    ? (siteConfig?.profissionais?.find(p => p.id === selectedProfIdModal)?.nome || null)
+  // Auto-seleciona o primeiro disponível se nenhum foi escolhido no modal
+  const effProfId = selectedProfIdModal || (bookingData.profDisp?.length ? bookingData.profDisp[0] : null);
+  const profNome = effProfId
+    ? (siteConfig?.profissionais?.find(p => p.id === effProfId)?.nome || null)
     : null;
   const msg = t().waBookMsg(dd, mm, bookingData.horario, nome, servicos, profNome);
   const phone = siteConfig?.telefoneAdmin || '';
