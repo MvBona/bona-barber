@@ -4,14 +4,17 @@ const path = require("path");
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-async function transcribeAudio(audioUrl) {
-  // Baixa o áudio
-  const response = await fetch(audioUrl);
-  const buffer = await response.arrayBuffer();
-
-  // Salva temporariamente
+async function transcribeAudio(source) {
   const tempPath = path.join(__dirname, "../temp_audio.ogg");
-  fs.writeFileSync(tempPath, Buffer.from(buffer));
+
+  if (Buffer.isBuffer(source)) {
+    fs.writeFileSync(tempPath, source);
+  } else {
+    // Compatibilidade: aceita URL (legado Z-API)
+    const response = await fetch(source);
+    const buffer = await response.arrayBuffer();
+    fs.writeFileSync(tempPath, Buffer.from(buffer));
+  }
 
   // Transcreve com Whisper
   const transcription = await client.audio.transcriptions.create({

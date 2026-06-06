@@ -1,3 +1,5 @@
 node_modules/
 .env
 google-credentials.json
+auth_info_baileys/
+temp_audio.ogg

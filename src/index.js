@@ -20,6 +20,7 @@ const express = require("express");
 const path = require("path");
 const schedule = require("node-cron");
 const { tr, clientLanguages } = require("./i18n");
+const { initBaileys, sendMessage, downloadMediaMessage, jidToPhone } = require("./whatsapp");
 
 console.log("carregando sheets...");
 const {
@@ -44,7 +45,7 @@ const {
 } = require("./sheets");
 
 console.log("carregando ai...");
-const { interpretMessage, addToHistory, clearAllHistories } = require("./ai");
+const { interpretMessage, interpretBarberMessage, addToHistory, clearAllHistories } = require("./ai");
 
 console.log("carregando transcribe...");
 const { transcribeAudio } = require("./transcribe");
@@ -66,14 +67,10 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "..", "public")));
 
-const ZAPI_INSTANCE_ID = process.env.ZAPI_INSTANCE_ID;
-const ZAPI_TOKEN = process.env.ZAPI_TOKEN;
-const ZAPI_CLIENT_TOKEN = process.env.ZAPI_CLIENT_TOKEN;
 const BARBERSHOP_PHONE = process.env.BARBERSHOP_PHONE;
 
 const debounceTimers = new Map();
 const pendingMessages = new Map();
-const lastMessageTime = new Map();
 // Agendamento pendente aguardando nome válido: phone → { data, horario }
 const waitingForNameToBook = new Map();
 // Cancelamento aguardando motivo: phone → { data, horario }
@@ -114,26 +111,6 @@ function isValidName(name) {
   return true;
 }
 
-async function sendMessage(phone, message) {
-  const last = lastMessageTime.get(phone);
-  if (last) {
-    const wait = 2500 - (Date.now() - last);
-    if (wait > 0) await new Promise(r => setTimeout(r, wait));
-  }
-  lastMessageTime.set(phone, Date.now());
-
-  const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Client-Token": ZAPI_CLIENT_TOKEN,
-    },
-    body: JSON.stringify({ phone, message }),
-  });
-  const data = await response.json();
-  console.log("Resposta enviada:", data);
-}
 
 async function notifyBarber(message) {
   if (!BARBERSHOP_PHONE) return;
@@ -919,6 +896,15 @@ async function processAccumulatedMessages(phone, name) {
       await sendMessage(phone, commandResponse);
       return;
     }
+
+    // Nenhum comando reconhecido — IA casual do barbeiro
+    try {
+      const barberResponse = await interpretBarberMessage(combinedText, name, phone);
+      await sendMessage(phone, barberResponse);
+    } catch (e) {
+      await sendMessage(phone, "Não entendi não chefe 😅 Manda *ajuda* pra ver os comandos.");
+    }
+    return;
   }
 
   // Verifica se está aguardando nome para confirmar agendamento pendente
@@ -1328,37 +1314,32 @@ app.get("/api/slots", async (req, res) => {
 });
 
 
-app.post("/webhook", async (req, res) => {
-  const body = req.body;
-
-  if (body.fromMe || body.isFromMe) return res.sendStatus(200);
-
-  const phone = body.phone;
-  const name = body.senderName;
+async function handleIncomingMessage(msg) {
+  const phone = jidToPhone(msg.key.remoteJid);
+  const name = msg.pushName || "";
   let text = null;
 
-  if (body.text?.message) {
-    text = body.text.message;
+  if (msg.message?.conversation) {
+    text = msg.message.conversation;
     console.log(`Texto de ${name} (${phone}): ${text}`);
-  } else if (body.audio?.audioUrl) {
+  } else if (msg.message?.extendedTextMessage?.text) {
+    text = msg.message.extendedTextMessage.text;
+    console.log(`Texto de ${name} (${phone}): ${text}`);
+  } else if (msg.message?.audioMessage) {
     console.log(`Áudio recebido de ${name} (${phone}), transcrevendo...`);
     try {
-      text = await transcribeAudio(body.audio.audioUrl);
+      const buffer = await downloadMediaMessage(msg, "buffer", {});
+      text = await transcribeAudio(buffer);
       console.log(`Transcrição: ${text}`);
     } catch (error) {
       console.error("Erro ao transcrever áudio:", error.message);
-      await sendMessage(
-        phone,
-        "Não consegui entender o áudio. Digita pf? 😅",
-      );
-      await notifyBarber(
-        `⚠️ Problema ao processar áudio de ${name} (${phone})`,
-      );
-      return res.sendStatus(200);
+      await sendMessage(phone, "Não consegui entender o áudio. Digita pf? 😅");
+      await notifyBarber(`⚠️ Problema ao processar áudio de ${name} (${phone})`);
+      return;
     }
   }
 
-  if (!text) return res.sendStatus(200);
+  if (!text) return;
 
   if (!pendingMessages.has(phone)) pendingMessages.set(phone, []);
   pendingMessages.get(phone).push(text);
@@ -1371,9 +1352,7 @@ app.post("/webhook", async (req, res) => {
   }, debounceTime);
 
   debounceTimers.set(phone, timer);
-
-  res.sendStatus(200);
-});
+}
 
 const CRONS_ENABLED = process.env.CRONS_ENABLED !== "false";
 
@@ -1432,4 +1411,10 @@ app.listen(PORT, () => {
   generateWeeklySlots()
     .then(() => console.log("Horários verificados no startup!"))
     .catch((err) => console.error("Erro ao gerar horários no startup:", err.message));
+});
+
+console.log("Iniciando conexão com WhatsApp via Baileys...");
+initBaileys(handleIncomingMessage).catch((err) => {
+  console.error("Erro ao iniciar Baileys:", err.message);
+  process.exit(1);
 });
