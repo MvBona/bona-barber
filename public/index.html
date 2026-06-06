@@ -3,21 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Soul Black Barbearia</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <title>Bona Barber</title>
+  <link href="https://fonts.googleapis.com/css2?family=Italiana&family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg:       #0a0a0a;
-      --bg2:      #141414;
-      --bg3:      #1e1e1e;
-      --gold:     #c9a447;
-      --gold-dim: rgba(201,164,71,0.12);
-      --text:     #f0ece0;
-      --muted:    #77736a;
+      --bg:       #0d0b09;
+      --bg2:      #161210;
+      --bg3:      #201a16;
+      --gold:     #b5272e;
+      --gold-dim: rgba(181,39,46,0.12);
+      --text:     #f0e8dc;
+      --muted:    #7a6e62;
       --green:    #4caf7d;
       --red:      #e05555;
       --gray:     #444;
-      --border:   #252525;
+      --border:   #2a2018;
     }
     * { margin:0; padding:0; box-sizing:border-box; }
     html { scroll-behavior:smooth; }
@@ -61,12 +61,12 @@
       border-radius:12px; margin-bottom:.8rem;
     }
     header h1 {
-      font-family:'Cinzel',serif; font-size:2rem; font-weight:900;
-      color:var(--gold); letter-spacing:.15em; text-transform:uppercase;
+      font-family:'Italiana',serif; font-size:2.6rem; font-weight:400;
+      color:var(--gold); letter-spacing:.08em;
     }
     header p {
-      color:var(--muted); font-size:.7rem; letter-spacing:.3em;
-      text-transform:uppercase; margin-top:.3rem;
+      color:var(--muted); font-size:.65rem; letter-spacing:.35em;
+      text-transform:uppercase; margin-top:.4rem;
     }
     .gold-line {
       width:60px; height:2px; background:var(--gold);
@@ -302,7 +302,7 @@
 
     @media(max-width:480px) {
       header h1 { font-size:1.5rem; }
-      header img { width:120px; height:120px; }
+      header h1 { font-size:2rem; }
       .day-title .dt-main { font-size:1.2rem; }
 
       /* Calendar mobile */
@@ -357,9 +357,8 @@
       <span>ES</span>
     </button>
   </div>
-  <img src="/logo.jpeg" alt="Soul Black" onerror="this.style.display='none'">
-  <h1>Soul Black</h1>
-  <p>Barbearia &nbsp;·&nbsp; Agenda Online</p>
+  <h1>Bona Barber</h1>
+  <p>Barbiere &nbsp;·&nbsp; Agenda Online</p>
   <div class="gold-line"></div>
 </header>
 
@@ -376,7 +375,7 @@
   </div>
 </main>
 
-<footer>Agenda — <span>Soul Black Barbearia</span><div id="last-update"></div></footer>
+<footer>Agenda — <span>Bona Barber</span><div id="last-update"></div></footer>
 
 <div id="modal" class="modal-overlay" style="display:none" onclick="handleOverlayClick(event)">
   <div class="modal-box">
