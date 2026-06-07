@@ -525,12 +525,22 @@ async function processAdminCommand(text, callerProfile) {
       })();
       const clientPhone = phoneExtract || callerProfile.prof?.telefone || ADMIN_PHONE;
 
-      const afterVerb = normalized.replace(/.*?(?:agenda|marca|reserva)\s+(?:pra?\s+|para\s+)?/, "");
-      const nameRaw = afterVerb
-        .replace(/\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?/g, "").replace(/\b\d{8,13}\b/g, "")
-        .replace(/\b\d{1,2}\s*h\b/g, "").replace(/\b(?:dia|hoje|amanha|às|as|de|do|da|para|pra|no|na)\b/g, "")
-        .replace(/\s+/g, " ").trim();
-      const clientName = nameRaw ? nameRaw.replace(/\b\w/g, (c) => c.toUpperCase()) : "Cliente";
+      // "meu nome é X" tem prioridade; fallback: extrair após o verbo com guard de tamanho
+      const nomeExplicito = normalized.match(/meu\s+nome\s+[eé]\s+([\p{L}]{2,}(?:\s+[\p{L}]{2,}){0,2})/u);
+      let clientName;
+      if (nomeExplicito) {
+        clientName = nomeExplicito[1].trim().replace(/\b\w/g, (c) => c.toUpperCase());
+      } else {
+        const afterVerb = normalized.replace(/.*?(?:agenda|marca|reserva)\s+(?:pra?\s+|para\s+)?/, "");
+        const nameRaw = afterVerb
+          .replace(/\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?/g, "").replace(/\b\d{8,13}\b/g, "")
+          .replace(/\b\d{1,2}\s*h\b/g, "").replace(/\b(?:dia|hoje|amanha|às|as|de|do|da|para|pra|no|na)\b/g, "")
+          .replace(/\s+/g, " ").trim();
+        const nameWords = nameRaw.split(/\s+/).filter(Boolean);
+        clientName = (nameWords.length >= 1 && nameWords.length <= 4 && nameRaw.length <= 40)
+          ? nameRaw.replace(/\b\w/g, (c) => c.toUpperCase())
+          : "Cliente";
+      }
 
       const existing = await getSlotInfo(dateMatch, timeMatch, targetBookProf.id);
       if (existing && existing.status === "agendado") {
