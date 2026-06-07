@@ -601,7 +601,8 @@ function openBooking(date, horario, profDisp) {
   const [,mm,dd] = date.split('-');
   const now = new Date();
   const [h,min] = horario.split(':').map(Number);
-  const slotTime = new Date(); slotTime.setHours(h,min,0,0);
+  const [sy,sm,sd] = date.split('-').map(Number);
+  const slotTime = new Date(sy, sm-1, sd, h, min, 0, 0);
   const diffMin = (slotTime - now) / (1000*60);
 
   // profDisp: array of available profId strings, or null (filtered/single-prof mode)
