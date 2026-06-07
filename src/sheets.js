@@ -557,12 +557,14 @@ async function getSlotsForDates(dates, profId = null) {
 
   // grouped[date][horario] = [{ profissional, status }]
   const grouped = {};
+  const validProfIds = new Set(getProfissionais().map(p => p.id));
 
   for (const [sheetName, monthDates] of Object.entries(byMonth)) {
     try {
       const response = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `${sheetName}!A:F` });
       for (const row of (response.data.values || []).slice(1)) {
         if (!monthDates.has(row[0])) continue;
+        if (!validProfIds.has(row[2])) continue;   // ignora profs removidos do config
         if (profId && row[2] !== profId) continue;
 
         if (!grouped[row[0]]) grouped[row[0]] = {};

@@ -775,11 +775,12 @@ async function processAccumulatedMessages(phone, name) {
         const profNome = isMultiProfessional()
           ? (config.profissionais?.find((p) => p.id === profId)?.nome || null)
           : null;
-        const confirmMsg = tr(phone, "bookingConfirm", nomeLimpo, horario, profNome);
+        const confirmMsg = tr(phone, "bookingConfirm", nomeLimpo, horario, profNome, servico);
         await sendMessage(phone, confirmMsg);
         const profLabel = profNome ? `\n👨 ${profNome}` : "";
-        await notifyAdmin(`✅ *Novo agendamento*\n👤 ${nomeLimpo}\n📅 ${fmtDate(data)}\n🕐 ${horario}${profLabel}`);
-        await notifyProfissional(profId, `📋 *Novo agendamento*\n👤 ${nomeLimpo}\n📅 ${fmtDate(data)} às ${horario}`);
+        const srvLabel = servico ? `\n📋 ${servico}` : "";
+        await notifyAdmin(`✅ *Novo agendamento*\n👤 ${nomeLimpo}\n📅 ${fmtDate(data)}\n🕐 ${horario}${srvLabel}${profLabel}`);
+        await notifyProfissional(profId, `📋 *Novo agendamento*\n👤 ${nomeLimpo}\n📅 ${fmtDate(data)} às ${horario}${srvLabel}`);
       }
       return;
     }
@@ -848,9 +849,10 @@ async function processAccumulatedMessages(phone, name) {
       await sendMessage(phone, tr(phone, "slotTaken"));
     } else {
       const profNome = isMultiProfessional() ? profEscolhido.nome : null;
-      await sendMessage(phone, tr(phone, "bookingConfirm", nomePendente, horario, profNome));
-      await notifyAdmin(`✅ *Novo agendamento*\n👤 ${nomePendente}\n📅 ${fmtDate(data)}\n🕐 ${horario}${profNome ? `\n👨 ${profNome}` : ""}`);
-      await notifyProfissional(profEscolhido.id, `📋 *Novo agendamento*\n👤 ${nomePendente}\n📅 ${fmtDate(data)} às ${horario}`);
+      const srvLabel = servico ? `\n📋 ${servico}` : "";
+      await sendMessage(phone, tr(phone, "bookingConfirm", nomePendente, horario, profNome, servico));
+      await notifyAdmin(`✅ *Novo agendamento*\n👤 ${nomePendente}\n📅 ${fmtDate(data)}\n🕐 ${horario}${srvLabel}${profNome ? `\n👨 ${profNome}` : ""}`);
+      await notifyProfissional(profEscolhido.id, `📋 *Novo agendamento*\n👤 ${nomePendente}\n📅 ${fmtDate(data)} às ${horario}${srvLabel}`);
     }
     return;
   }
@@ -894,6 +896,12 @@ async function processAccumulatedMessages(phone, name) {
     console.log("Intenção identificada:", result);
 
     if (result.acao === "agendar" && result.data && result.horario) {
+      // Serviço obrigatório — se a IA não extraiu, ela já perguntou em result.resposta
+      if (!result.servicos?.length) {
+        await sendMessage(phone, result.resposta);
+        return;
+      }
+
       const count = await countClientAppointmentsOnDay(phone, result.data);
       if (count >= config.maxAgendamentosPorDia) {
         await sendMessage(phone, tr(phone, "maxBookings"));

@@ -19,10 +19,10 @@ const translations = {
         : `Seu horário é em 1 hora, às ${hora} em ${nome}.`,
     waitingName: "Pera, qual é o seu nome pra eu marcar?",
     invalidName: "Não entendi não. Me fala seu nome aí.",
-    bookingConfirm: (nome, horario, profNome) =>
+    bookingConfirm: (nome, horario, profNome, servico) =>
       profNome
-        ? `Valeu, ${nome}! Tá marcado com ${profNome} pras ${horario}. Até lá! ✅`
-        : `Valeu, ${nome}! Tá marcado pras ${horario}. Até lá! ✅`,
+        ? `Valeu, ${nome}! Tá marcado com ${profNome} pras ${horario}${servico ? ` — ${servico}` : ''}. Até lá! ✅`
+        : `Valeu, ${nome}! Tá marcado pras ${horario}${servico ? ` — ${servico}` : ''}. Até lá! ✅`,
     maxBookings: `Vc já tem ${config.maxAgendamentosPorDia} horários nesse dia — é o máximo. Cancela um se quiser trocar.`,
     slotTaken: `Esse horário já foi. Dá uma olhada nos livres? Se quiser um específico, manda *${alias}*. 👍`,
     cancelTooLate: `Não rola cancelar com menos de ${config.cancelamentoMinHoras}h de antecedência. Se precisar, manda *${alias}* pra resolver.`,
@@ -54,10 +54,10 @@ const translations = {
         : `Tu turno es en 1 hora, a las ${hora} en ${nome}.`,
     waitingName: "Esperá, ¿cuál es tu nombre para anotar el turno?",
     invalidName: "No entendí. Decime tu nombre.",
-    bookingConfirm: (nome, horario, profNome) =>
+    bookingConfirm: (nome, horario, profNome, servico) =>
       profNome
-        ? `¡Listo, ${nome}! Turno con ${profNome} confirmado a las ${horario}. ¡Te esperamos! ✅`
-        : `¡Listo, ${nome}! Turno confirmado a las ${horario}. ¡Te esperamos! ✅`,
+        ? `¡Listo, ${nome}! Turno con ${profNome} confirmado a las ${horario}${servico ? ` — ${servico}` : ''}. ¡Te esperamos! ✅`
+        : `¡Listo, ${nome}! Turno confirmado a las ${horario}${servico ? ` — ${servico}` : ''}. ¡Te esperamos! ✅`,
     langNote: "Ah, una cosita — nuestro negocio habla portugués principalmente, pero nos arreglamos en español 😄",
     maxBookings: `Ya tenés ${config.maxAgendamentosPorDia} turnos ese día — es el máximo. Cancelá uno si querés cambiar.`,
     slotTaken: `Ese horario ya fue. ¿Querés ver los disponibles? Si querés uno específico, mandá *${alias}*. 👍`,
@@ -90,10 +90,10 @@ const translations = {
         : `Your appointment is in 1 hour, at ${hora} at ${nome}.`,
     waitingName: "Hold on — what's your name so I can book it?",
     invalidName: "Didn't get that. Tell me your name.",
-    bookingConfirm: (nome, horario, profNome) =>
+    bookingConfirm: (nome, horario, profNome, servico) =>
       profNome
-        ? `Done, ${nome}! Booked with ${profNome} for ${horario}. See you then! ✅`
-        : `Done, ${nome}! Booked for ${horario}. See you then! ✅`,
+        ? `Done, ${nome}! Booked with ${profNome} for ${horario}${servico ? ` — ${servico}` : ''}. See you then! ✅`
+        : `Done, ${nome}! Booked for ${horario}${servico ? ` — ${servico}` : ''}. See you then! ✅`,
     langNote: `Quick heads up — our ${alias} speaks Portuguese mainly, but we'll figure it out! 💪`,
     maxBookings: `You already have ${config.maxAgendamentosPorDia} appointments that day — that's the max.`,
     slotTaken: `That slot is taken. Want to check the available ones? If you need a specific time, send *${alias}*. 👍`,
