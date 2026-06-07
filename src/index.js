@@ -22,7 +22,7 @@ const {
 const { interpretMessage, interpretAdminMessage, addToHistory, clearAllHistories } = require("./ai");
 const { transcribeAudio } = require("./transcribe");
 const {
-  generateWeeklySlots, resetSlots, blockDay, blockSlot, blockPeriod,
+  generateWeeklySlots, resetSlots, resetProfSlots, blockDay, blockSlot, blockPeriod,
   unblockDay, unblockSlot, unblockPeriod,
 } = require("./scheduler");
 
@@ -649,6 +649,34 @@ async function processAdminCommand(text, callerProfile) {
     humanHandoff.delete(clientPhone);
     await sendMessage(clientPhone, tr(clientPhone, "handoffEnd"));
     return `✅ Atendimento encerrado. Bot retomado para ${clientPhone}.`;
+  }
+
+  // ── ZERAR AGENDA POR PROFISSIONAL (somente admin total, multi-prof) ──────
+  if (callerProfile.tipo === "admin" && isMultiProfessional()) {
+    const norm2 = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    const zerarProfMatch = normalized.match(/^zerar\s+(?:agenda\s+)?(.+)$/);
+    const confirmarZerarMatch = normalized.match(/^confirmar\s+zerar\s+(.+)$/);
+
+    if (zerarProfMatch) {
+      const prof = config.profissionais?.find((p) => norm2(p.nome) === norm2(zerarProfMatch[1].trim()));
+      if (prof) return `⚠️ *Vai apagar e recriar todos os slots de ${prof.nome}* (mês atual e próximo).\nAgendamentos existentes serão perdidos.\n\nManda *confirmar zerar ${norm2(prof.nome)}* pra prosseguir.`;
+    }
+
+    if (confirmarZerarMatch) {
+      const prof = config.profissionais?.find((p) => norm2(p.nome) === norm2(confirmarZerarMatch[1].trim()));
+      if (prof) {
+        try {
+          const { apagados } = await resetProfSlots(prof.id);
+          let msg = `✅ Agenda de *${prof.nome}* zerada e recriada.\n`;
+          if (!apagados.length) { msg += "Nenhum agendamento foi perdido."; }
+          else {
+            msg += `\n*Agendamentos apagados (${apagados.length}):*\n`;
+            msg += apagados.map((a) => { const [, m, d] = a.data.split("-"); return `👤 ${a.nome} — ${d}/${m} às ${a.horario} — 📞 ${a.telefone}`; }).join("\n");
+          }
+          return msg;
+        } catch (e) { return `❌ Erro ao zerar: ${e.message}`; }
+      }
+    }
   }
 
   // ── ZERAR AGENDA (somente admin total) ───────────────────────────────────

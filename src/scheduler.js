@@ -68,11 +68,13 @@ async function ensureSheetExists(sheets, sheetName) {
   }
 }
 
-async function generateWeeklySlots() {
+async function generateWeeklySlots(filterProfId = null) {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: "v4", auth: client });
   const dates = getNextTwoMonthsDates();
-  const profissionais = getProfissionais();
+  const profissionais = filterProfId
+    ? getProfissionais().filter((p) => p.id === filterProfId)
+    : getProfissionais();
   const datesByMonth = {};
 
   for (const date of dates) {
@@ -240,4 +242,44 @@ async function resetSlots(scope = "mes") {
   return { total: apagados.length, apagados };
 }
 
-module.exports = { generateWeeklySlots, resetSlots, blockDay, blockSlot, blockPeriod, unblockDay, unblockSlot, unblockPeriod, getProfissionais };
+// Zera e recria agenda de UM profissional sem afetar os demais
+async function resetProfSlots(profId) {
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+  const n = new Date(new Date().toLocaleString("en-US", { timeZone: TZ }));
+  const sheetNames = [0, 1].map((i) => {
+    const d = new Date(n.getFullYear(), n.getMonth() + i, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+
+  const apagados = [];
+
+  for (const sheetName of sheetNames) {
+    try {
+      await ensureSheetExists(sheets, sheetName);
+      const response = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `${sheetName}!A:K` });
+      const rows = response.data.values || [];
+      const dataRows = rows.slice(1);
+
+      dataRows.forEach((row) => {
+        if (row[2] === profId && row[5] === "agendado" && row[0] && row[1])
+          apagados.push({ data: row[0], horario: row[1], nome: row[3] || "", telefone: row[4] || "" });
+      });
+
+      const keepRows = dataRows.filter((row) => row[2] !== profId);
+
+      await sheets.spreadsheets.values.clear({ spreadsheetId: SPREADSHEET_ID, range: `${sheetName}!A2:K9999` });
+      if (keepRows.length > 0) {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID, range: `${sheetName}!A2`,
+          valueInputOption: "RAW", requestBody: { values: keepRows },
+        });
+      }
+    } catch (e) { console.error(`resetProfSlots ${profId}/${sheetName}:`, e.message); }
+  }
+
+  await generateWeeklySlots(profId);
+  return { total: apagados.length, apagados };
+}
+
+module.exports = { generateWeeklySlots, resetSlots, resetProfSlots, blockDay, blockSlot, blockPeriod, unblockDay, unblockSlot, unblockPeriod, getProfissionais };
