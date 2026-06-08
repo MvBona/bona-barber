@@ -7,6 +7,7 @@ require("dotenv").config();
 
 const express = require("express");
 const path = require("path");
+const fs = require("fs");
 const schedule = require("node-cron");
 const config = require("../config");
 const { tr, clientLanguages } = require("./i18n");
@@ -226,7 +227,34 @@ async function sendUnconfirmedNotifications(tipo, minutosGraca) {
   } catch (e) { console.error(`Erro ao verificar sem-resposta ${tipo}:`, e.message); }
 }
 
+const REMINDER_LOCK = "/tmp/bona-reminder.lock";
+
+function acquireReminderLock() {
+  try {
+    fs.writeFileSync(REMINDER_LOCK, `${process.pid}`, { flag: "wx" });
+    return true;
+  } catch {
+    try {
+      const stat = fs.statSync(REMINDER_LOCK);
+      if (Date.now() - stat.mtimeMs > 5 * 60 * 1000) {
+        fs.unlinkSync(REMINDER_LOCK);
+        fs.writeFileSync(REMINDER_LOCK, `${process.pid}`, { flag: "wx" });
+        return true;
+      }
+    } catch {}
+    return false;
+  }
+}
+
+function releaseReminderLock() {
+  try { fs.unlinkSync(REMINDER_LOCK); } catch {}
+}
+
 async function sendReminders(horasAntes) {
+  if (!acquireReminderLock()) {
+    console.log(`[lembrete ${horasAntes}h] outro processo está executando, pulando.`);
+    return;
+  }
   try {
     const appointments = await getAppointmentsForReminder(horasAntes);
     for (const appt of appointments) {
@@ -241,6 +269,7 @@ async function sendReminders(horasAntes) {
       addToHistory(appt.telefone, "assistant", msg);
     }
   } catch (e) { console.error(`Erro ao enviar lembretes ${horasAntes}h:`, e.message); }
+  finally { releaseReminderLock(); }
 }
 
 // ── Processamento de comandos admin ─────────────────────────────────────────
