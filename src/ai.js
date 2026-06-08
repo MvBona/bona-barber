@@ -72,8 +72,9 @@ function setValidatedName(phone, name) {
 }
 
 async function interpretMessage(message, availableSlots, clientName, phone) {
+  const isMulti = (config.profissionais?.length || 0) > 1;
   const slotsText = availableSlots.map((s) => {
-    const profNome = config.profissionais?.find((p) => p.id === s.profissional)?.nome;
+    const profNome = isMulti ? config.profissionais?.find((p) => p.id === s.profissional)?.nome : null;
     return profNome ? `${s.data} às ${s.horario} (${profNome})` : `${s.data} às ${s.horario}`;
   }).join("\n");
 
@@ -154,7 +155,8 @@ Regras importantes:
 - Nunca se apresente como bot — aja como se fosse uma pessoa real.
 - Sobre saudações: ${greetInstruction}
 - Interpretação de datas: se mencionar dia da semana E número, use o número. Se só dia da semana, calcule a próxima ocorrência. "amanhã" = dia seguinte. "hoje" = hoje. Se só o número sem mês, assuma o mês atual ou próximo se já passou.
-- Detecte o idioma e preencha "idioma": "pt", "es" ou "en".${profInstructions}`;
+- Detecte o idioma e preencha "idioma": "pt", "es" ou "en".${profInstructions}
+${!profissionaisTexto ? "- NÃO mencione o nome do profissional/barbeiro na confirmação de agendamento — há apenas um." : ""}`;
 
   addToHistory(phone, "user", message);
 
