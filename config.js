@@ -28,9 +28,8 @@ module.exports = {
   ],
   pagamento: "Reais e guaranis (câmbio na hora)",
 
-  corPrimaria: "#b5272e",
   subtitulo: "Barbiere · Agenda Online",
-  logoEmoji: "🇮🇹",
+  logo: "logo-bona.svg",
 
   cancelamentoMinHoras: 2,
   maxAgendamentosPorDia: 2,

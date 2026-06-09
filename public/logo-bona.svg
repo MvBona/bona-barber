@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Outer circle -->
+  <circle cx="100" cy="100" r="97" fill="#0a0a0a"/>
+  <circle cx="100" cy="100" r="96" fill="none" stroke="#c9a447" stroke-width="2"/>
+  <!-- Inner ring -->
+  <circle cx="100" cy="100" r="83" fill="none" stroke="rgba(201,164,71,0.22)" stroke-width="1"/>
+
+  <!-- Top diamond ornament -->
+  <polygon points="100,22 105.5,32 100,42 94.5,32" fill="#c9a447" opacity="0.9"/>
+
+  <!-- BONA -->
+  <text x="100" y="88"
+        font-family="Georgia,'Times New Roman',serif"
+        font-size="31" font-weight="bold"
+        fill="#c9a447" text-anchor="middle"
+        letter-spacing="9">BONA</text>
+
+  <!-- Divider line with end dots -->
+  <line x1="48" y1="100" x2="152" y2="100" stroke="#c9a447" stroke-width="1" opacity="0.45"/>
+  <circle cx="44" cy="100" r="2.5" fill="#c9a447" opacity="0.75"/>
+  <circle cx="156" cy="100" r="2.5" fill="#c9a447" opacity="0.75"/>
+
+  <!-- BARBER -->
+  <text x="100" y="124"
+        font-family="Georgia,'Times New Roman',serif"
+        font-size="18"
+        fill="#f0ece0" text-anchor="middle"
+        letter-spacing="7">BARBER</text>
+
+  <!-- Thin line below BARBER -->
+  <line x1="66" y1="136" x2="134" y2="136" stroke="rgba(201,164,71,0.3)" stroke-width="1"/>
+
+  <!-- Bottom subtitle -->
+  <text x="100" y="153"
+        font-family="Georgia,'Times New Roman',serif"
+        font-size="8.5"
+        fill="rgba(201,164,71,0.6)" text-anchor="middle"
+        letter-spacing="3.5">BARBIERE</text>
+
+  <!-- Bottom diamond ornament -->
+  <polygon points="100,165 104.5,172 100,179 95.5,172" fill="#c9a447" opacity="0.5"/>
+</svg>
