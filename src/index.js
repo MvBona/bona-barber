@@ -949,9 +949,7 @@ async function processAccumulatedMessages(phone, name) {
   // ── IA principal ─────────────────────────────────────────────────────────
   try {
     const allSlots = await getAvailableSlots();
-    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() + 7);
-    const cutoffStr = cutoff.toISOString().split("T")[0];
-    const slots = allSlots.filter(s => s.data <= cutoffStr);
+    const slots = filterSlotsForMessage(combinedText, allSlots);
     const result = await interpretMessage(combinedText, slots, name, phone);
     console.log("Intenção identificada:", result);
 
@@ -1307,6 +1305,65 @@ app.get("/api/slots", async (req, res) => {
     res.status(500).json({ error: "Erro ao buscar agenda" });
   }
 });
+
+// ── Filtro de slots por data mencionada ──────────────────────────────────────
+function filterSlotsForMessage(text, allSlots) {
+  const norm = text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const tz = TZ;
+  const now = new Date(new Date().toLocaleString("en-US", { timeZone: tz }));
+
+  function fmt(d) { return d.toISOString().split("T")[0]; }
+  function nextWorkingDay(d, skip = 0) {
+    const r = new Date(d);
+    r.setDate(r.getDate() + 1 + skip);
+    while (config.diasFechado.includes(r.getDay())) r.setDate(r.getDate() + 1);
+    return r;
+  }
+
+  let dates = null;
+
+  if (/\bhoje\b/.test(norm)) { dates = [fmt(now)]; }
+  else if (/\bamanh[aã]\b/.test(norm)) { dates = [fmt(nextWorkingDay(now, -1))]; }
+  else {
+    const dowMap = { segunda:1, terca:2, quarta:3, quinta:4, sexta:5, sabado:6 };
+    for (const [name, dow] of Object.entries(dowMap)) {
+      if (norm.includes(name)) {
+        const d = new Date(now);
+        let diff = (dow - d.getDay() + 7) % 7 || 7;
+        d.setDate(d.getDate() + diff);
+        dates = [fmt(d)]; break;
+      }
+    }
+  }
+
+  if (!dates) {
+    const m = norm.match(/(?:dia\s+)?(\d{1,2})\/(\d{1,2})/) || norm.match(/dia\s+(\d{1,2})\b/);
+    if (m) {
+      const day = parseInt(m[1]);
+      const month = m[2] ? parseInt(m[2]) - 1 : now.getMonth();
+      const d = new Date(now.getFullYear(), month, day);
+      if (d < now) d.setFullYear(d.getFullYear() + 1);
+      dates = [fmt(d)];
+    }
+  }
+
+  if (!dates && /semana\s+que\s+vem|pr[oó]xima\s+semana/.test(norm)) {
+    const d = new Date(now);
+    const toMon = (8 - d.getDay()) % 7 || 7;
+    d.setDate(d.getDate() + toMon);
+    dates = [];
+    for (let i = 0; dates.length < 5 && i < 14; i++) {
+      const curr = new Date(d); curr.setDate(d.getDate() + i);
+      if (!config.diasFechado.includes(curr.getDay())) dates.push(fmt(curr));
+    }
+  }
+
+  if (dates?.length) return allSlots.filter(s => dates.includes(s.data));
+
+  const d2 = nextWorkingDay(now); const d3 = nextWorkingDay(d2);
+  const fallback = new Set([fmt(now), fmt(d2), fmt(d3)]);
+  return allSlots.filter(s => fallback.has(s.data));
+}
 
 // ── Crons ────────────────────────────────────────────────────────────────────
 
