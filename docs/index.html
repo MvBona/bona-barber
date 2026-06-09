@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Secretaria automática no WhatsApp + site de agendamento para barbearias. IA agenda, confirma e envia lembretes automáticos. A partir de R$100/mês.">
+  <title>Barbearia Digital — Secretaria IA para Barbearias</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold:    #c9a84c;
+      --gold2:   #e4c878;
+      --black:   #080808;
+      --black2:  #0f0f0f;
+      --black3:  #181818;
+      --white:   #f0efe8;
+      --grey:    #777;
+      --radius:  12px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--black);
+      color: var(--white);
+      line-height: 1.65;
+      font-size: 16px;
+    }
+
+    /* ── Nav ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 24px;
+      background: rgba(8,8,8,.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(201,168,76,.15);
+    }
+    .nav-logo { font-size: 1.1rem; font-weight: 700; color: var(--gold); letter-spacing: .04em; }
+    .nav-logo span { color: var(--white); }
+    .nav-cta {
+      background: var(--gold); color: var(--black);
+      padding: 9px 20px; border-radius: 8px;
+      font-weight: 700; font-size: .85rem;
+      text-decoration: none; white-space: nowrap;
+      transition: background .2s;
+    }
+    .nav-cta:hover { background: var(--gold2); }
+
+    /* ── Sections ── */
+    section { padding: 80px 24px; max-width: 860px; margin: 0 auto; }
+    section.full { max-width: 100%; padding-left: 0; padding-right: 0; }
+    .section-inner { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+    .tag {
+      display: inline-block;
+      background: rgba(201,168,76,.12);
+      color: var(--gold);
+      border: 1px solid rgba(201,168,76,.3);
+      border-radius: 99px;
+      font-size: .75rem; font-weight: 600; letter-spacing: .08em;
+      padding: 5px 14px; margin-bottom: 20px; text-transform: uppercase;
+    }
+
+    h1 { font-size: clamp(2rem, 6vw, 3.2rem); font-weight: 800; line-height: 1.2; }
+    h2 { font-size: clamp(1.5rem, 4vw, 2.2rem); font-weight: 700; line-height: 1.3; }
+    h3 { font-size: 1.15rem; font-weight: 700; }
+    .gold { color: var(--gold); }
+    .center { text-align: center; }
+
+    /* ── Hero ── */
+    #hero {
+      padding-top: 140px; padding-bottom: 80px;
+      text-align: center;
+      background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(201,168,76,.18), transparent);
+    }
+    #hero p.sub {
+      color: #aaa; font-size: 1.1rem;
+      max-width: 540px; margin: 20px auto 36px;
+    }
+    .hero-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn-primary {
+      background: var(--gold); color: var(--black);
+      padding: 14px 28px; border-radius: 10px;
+      font-weight: 700; font-size: 1rem;
+      text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+      transition: background .2s, transform .15s;
+    }
+    .btn-primary:hover { background: var(--gold2); transform: translateY(-1px); }
+    .btn-outline {
+      border: 1.5px solid rgba(201,168,76,.45); color: var(--gold);
+      padding: 14px 28px; border-radius: 10px;
+      font-weight: 600; font-size: 1rem;
+      text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+      transition: border-color .2s, background .2s;
+    }
+    .btn-outline:hover { border-color: var(--gold); background: rgba(201,168,76,.07); }
+
+    .hero-proof {
+      margin-top: 48px;
+      display: flex; align-items: center; justify-content: center; gap: 24px;
+      flex-wrap: wrap;
+      color: var(--grey); font-size: .85rem;
+    }
+    .hero-proof span { display: flex; align-items: center; gap: 6px; }
+
+    /* ── Divider ── */
+    .divider {
+      height: 1px;
+      background: linear-gradient(to right, transparent, rgba(201,168,76,.2), transparent);
+      margin: 0 24px;
+    }
+
+    /* ── Problema ── */
+    #problema { background: var(--black2); }
+    #problema-wrap { background: var(--black2); }
+    .problema-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px; margin-top: 40px;
+    }
+    .problema-card {
+      background: var(--black3);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .problema-card .icon { font-size: 1.6rem; margin-bottom: 12px; }
+    .problema-card p { color: #999; font-size: .92rem; margin-top: 6px; }
+
+    /* ── Como funciona ── */
+    .steps { display: grid; gap: 24px; margin-top: 48px; }
+    .step {
+      display: flex; gap: 20px; align-items: flex-start;
+    }
+    .step-num {
+      min-width: 44px; height: 44px;
+      background: rgba(201,168,76,.12);
+      border: 1.5px solid rgba(201,168,76,.35);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; color: var(--gold); font-size: 1rem;
+    }
+    .step-content h3 { margin-bottom: 6px; }
+    .step-content p { color: #999; font-size: .93rem; }
+
+    /* ── Features ── */
+    .features-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px; margin-top: 48px;
+    }
+    .feature-card {
+      background: var(--black3);
+      border: 1px solid rgba(201,168,76,.12);
+      border-radius: var(--radius);
+      padding: 24px;
+      transition: border-color .2s;
+    }
+    .feature-card:hover { border-color: rgba(201,168,76,.35); }
+    .feature-icon { font-size: 1.8rem; margin-bottom: 14px; }
+    .feature-card p { color: #999; font-size: .9rem; margin-top: 8px; }
+
+    /* ── Demo ── */
+    #demo-wrap { background: var(--black2); }
+    .demo-box {
+      border: 1px solid rgba(201,168,76,.2);
+      border-radius: 16px;
+      background: var(--black3);
+      padding: 36px; margin-top: 40px;
+      text-align: center;
+    }
+    .demo-box p { color: #aaa; margin: 12px 0 28px; }
+    .demo-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .chat-bubble {
+      background: rgba(201,168,76,.08); border: 1px solid rgba(201,168,76,.2);
+      border-radius: 12px; padding: 16px 20px;
+      max-width: 380px; margin: 0 auto 24px; text-align: left;
+    }
+    .chat-bubble .label { font-size: .72rem; color: var(--gold); font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .06em; }
+    .chat-bubble p { font-size: .93rem; color: #ccc; }
+
+    /* ── Preço ── */
+    .preco-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px; margin-top: 48px; align-items: start;
+    }
+    .preco-card {
+      background: var(--black3);
+      border: 1.5px solid rgba(255,255,255,.08);
+      border-radius: 16px; padding: 32px;
+      position: relative;
+    }
+    .preco-card.destaque {
+      border-color: var(--gold);
+      background: linear-gradient(135deg, #1a1500, var(--black3));
+    }
+    .badge-promo {
+      position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+      background: var(--gold); color: var(--black);
+      font-size: .72rem; font-weight: 700; letter-spacing: .06em;
+      padding: 4px 14px; border-radius: 99px; white-space: nowrap;
+      text-transform: uppercase;
+    }
+    .preco-nome { font-size: .8rem; color: var(--grey); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 12px; }
+    .preco-valor { font-size: 2.4rem; font-weight: 800; color: var(--white); line-height: 1; }
+    .preco-valor small { font-size: .9rem; font-weight: 400; color: var(--grey); }
+    .preco-detalhe { font-size: .82rem; color: var(--grey); margin: 6px 0 20px; }
+    .preco-lista { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+    .preco-lista li { display: flex; align-items: flex-start; gap: 10px; font-size: .9rem; color: #ccc; }
+    .preco-lista li::before { content: "✓"; color: var(--gold); font-weight: 700; flex-shrink: 0; }
+    .preco-cta {
+      display: block; text-align: center;
+      background: var(--gold); color: var(--black);
+      padding: 13px; border-radius: 9px;
+      font-weight: 700; text-decoration: none;
+      transition: background .2s;
+    }
+    .preco-cta:hover { background: var(--gold2); }
+    .preco-cta.outline {
+      background: transparent; color: var(--gold);
+      border: 1.5px solid rgba(201,168,76,.4);
+    }
+    .preco-cta.outline:hover { background: rgba(201,168,76,.08); }
+
+    .preco-obs { text-align: center; color: var(--grey); font-size: .82rem; margin-top: 20px; }
+
+    /* ── FAQ ── */
+    .faq-list { margin-top: 40px; display: flex; flex-direction: column; gap: 4px; }
+    details {
+      background: var(--black3); border: 1px solid rgba(255,255,255,.06);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    details + details { margin-top: 4px; }
+    summary {
+      padding: 18px 20px; cursor: pointer;
+      font-weight: 600; font-size: .95rem;
+      list-style: none; display: flex; justify-content: space-between; align-items: center;
+    }
+    summary::after { content: "+"; color: var(--gold); font-size: 1.2rem; font-weight: 300; }
+    details[open] summary::after { content: "−"; }
+    .faq-body { padding: 0 20px 18px; color: #999; font-size: .9rem; }
+
+    /* ── CTA final ── */
+    #cta-final {
+      text-align: center;
+      background: radial-gradient(ellipse 70% 60% at 50% 120%, rgba(201,168,76,.15), transparent);
+      border-top: 1px solid rgba(201,168,76,.12);
+    }
+    #cta-final p { color: #aaa; max-width: 480px; margin: 16px auto 36px; }
+
+    /* ── Footer ── */
+    footer {
+      background: var(--black2); border-top: 1px solid rgba(255,255,255,.06);
+      text-align: center; padding: 28px 24px;
+      color: var(--grey); font-size: .8rem;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      section { padding: 60px 20px; }
+      .step { flex-direction: column; gap: 12px; }
+      .demo-box { padding: 24px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ── -->
+<nav>
+  <span class="nav-logo">Barbearia<span>Digital</span></span>
+  <a class="nav-cta" href="https://wa.me/595973413527?text=Quero+saber+mais+sobre+o+Barbearia+Digital" target="_blank" rel="noopener">Falar agora</a>
+</nav>
+
+<!-- ── Hero ── -->
+<section id="hero">
+  <div class="tag">✦ Secretaria IA para Barbearias</div>
+  <h1>Sua barbearia atende<br><span class="gold">24 horas</span>, mesmo<br>sem você.</h1>
+  <p class="sub">
+    IA no WhatsApp + site de agendamento online.<br>
+    Clientes marcam, a secretaria confirma, você só aparece para cortar.
+  </p>
+  <div class="hero-btns">
+    <a class="btn-primary" href="https://wa.me/595973413527?text=Quero+saber+mais+sobre+o+Barbearia+Digital" target="_blank" rel="noopener">
+      <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.845L0 24l6.336-1.508A11.934 11.934 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.88 0-3.644-.492-5.17-1.354l-.369-.218-3.764.897.931-3.658-.24-.376A9.959 9.959 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+      Quero saber mais
+    </a>
+    <a class="btn-outline" href="/" target="_blank" rel="noopener">
+      Ver demo ao vivo →
+    </a>
+  </div>
+  <div class="hero-proof">
+    <span>✓ Sem app para instalar</span>
+    <span>✓ WhatsApp já usado</span>
+    <span>✓ Funciona 24h</span>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── Problema ── -->
+<div id="problema-wrap">
+  <section id="problema">
+    <div class="tag">O problema</div>
+    <h2>Quantos agendamentos você <span class="gold">perde</span> por dia?</h2>
+    <div class="problema-grid">
+      <div class="problema-card">
+        <div class="icon">📵</div>
+        <h3>Ocupado no corte</h3>
+        <p>Cliente manda mensagem, você está trabalhando, ele vai para o concorrente.</p>
+      </div>
+      <div class="problema-card">
+        <div class="icon">🌙</div>
+        <h3>Fora do horário</h3>
+        <p>Às 22h alguém quer marcar para amanhã. Sem resposta = sem agendamento.</p>
+      </div>
+      <div class="problema-card">
+        <div class="icon">👻</div>
+        <h3>Cliente some</h3>
+        <p>Marcou, esqueceu e não apareceu. Horário perdido sem aviso.</p>
+      </div>
+      <div class="problema-card">
+        <div class="icon">📒</div>
+        <h3>Agenda bagunçada</h3>
+        <p>Anotações no papel, mensagens no WhatsApp, nenhuma visão clara do dia.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="divider"></div>
+
+<!-- ── Como funciona ── -->
+<section id="como-funciona">
+  <div class="tag">Como funciona</div>
+  <h2>Simples para o cliente,<br><span class="gold">automático para você</span></h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h3>Cliente manda mensagem ou acessa o site</h3>
+        <p>O cliente conversa naturalmente no WhatsApp da barbearia ou entra no site de agendamento — sem baixar nada.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h3>IA entende, agenda e confirma</h3>
+        <p>A secretaria inteligente pergunta o nome, serviço e horário desejado, verifica a disponibilidade em tempo real e registra tudo automaticamente.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h3>Lembrete automático, você só aparece</h3>
+        <p>O cliente recebe lembretes automáticos antes do horário. Você recebe notificação e chega para trabalhar — sem surpresa de cliente sumido.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Features ── -->
+<section id="features" style="padding-top:0">
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">🤖</div>
+      <h3>Secretaria IA no WhatsApp</h3>
+      <p>Atende, agenda e responde perguntas 24h por dia, 7 dias por semana — no WhatsApp que o cliente já usa.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📅</div>
+      <h3>Site de agendamento online</h3>
+      <p>Link personalizado com seus serviços, preços e horários. Cliente escolhe e confirma direto — vai para o WhatsApp com tudo preenchido.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔔</div>
+      <h3>Lembretes automáticos</h3>
+      <p>O sistema avisa o cliente automaticamente antes do horário. Menos faltas, mais pontualidade.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <h3>Agenda do barbeiro</h3>
+      <p>Visualize os agendamentos do dia, da semana ou do mês. Sempre atualizado em tempo real.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🎨</div>
+      <h3>Personalizado para sua barbearia</h3>
+      <p>Nome, logo, cores, serviços e preços — tudo configurado para a sua identidade.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <h3>Pronto em dias, não semanas</h3>
+      <p>Setup rápido, suporte direto com quem desenvolveu. Sem burocracia.</p>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── Demo ── -->
+<div id="demo-wrap">
+  <section id="demo">
+    <div class="tag">Demo ao vivo</div>
+    <h2 class="center">Veja funcionando<br><span class="gold">agora mesmo</span></h2>
+    <div class="demo-box">
+      <div class="chat-bubble">
+        <div class="label">Cliente</div>
+        <p>Oi, quero marcar um corte para amanhã de manhã. Meu nome é João.</p>
+      </div>
+      <div class="chat-bubble" style="background:rgba(201,168,76,.06); border-color:rgba(201,168,76,.15);">
+        <div class="label" style="color:#aaa">Secretaria IA</div>
+        <p>Oi João! 👋 Temos horários disponíveis amanhã às 09:00, 10:00 e 11:00. Qual prefere? E qual serviço — Corte, Barba ou os dois?</p>
+      </div>
+      <p>Teste agora com um número real. A IA responde de verdade.</p>
+      <div class="demo-btns">
+        <a class="btn-primary" href="https://wa.me/5545920026026?text=Oi%2C+quero+marcar+um+hor%C3%A1rio" target="_blank" rel="noopener">
+          <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.845L0 24l6.336-1.508A11.934 11.934 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.88 0-3.644-.492-5.17-1.354l-.369-.218-3.764.897.931-3.658-.24-.376A9.959 9.959 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+          Testar a secretaria IA
+        </a>
+        <a class="btn-outline" href="/" target="_blank" rel="noopener">Ver site de agendamento →</a>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="divider"></div>
+
+<!-- ── Preço ── -->
+<section id="preco">
+  <div class="tag">Investimento</div>
+  <h2 class="center">Preço direto,<br><span class="gold">sem surpresas</span></h2>
+  <div class="preco-grid">
+    <div class="preco-card destaque">
+      <div class="badge-promo">🔥 Oferta de Lançamento</div>
+      <div class="preco-nome">Primeiros clientes</div>
+      <div class="preco-valor">R$100 <small>/ mês</small></div>
+      <div class="preco-detalhe">Setup R$100 · Mensalidade R$100 por 3 meses · Depois R$150/mês</div>
+      <ul class="preco-lista">
+        <li>Site de agendamento personalizado</li>
+        <li>Secretaria IA no WhatsApp 24h</li>
+        <li>Lembretes automáticos</li>
+        <li>Painel de agenda do barbeiro</li>
+        <li>Configuração completa inclusa</li>
+        <li>Suporte direto via WhatsApp</li>
+      </ul>
+      <a class="preco-cta" href="https://wa.me/595973413527?text=Quero+o+Barbearia+Digital%21+Vi+a+promo%C3%A7%C3%A3o+de+lan%C3%A7amento." target="_blank" rel="noopener">Quero essa oferta</a>
+    </div>
+    <div class="preco-card">
+      <div class="preco-nome">Preço normal</div>
+      <div class="preco-valor">R$150 <small>/ mês</small></div>
+      <div class="preco-detalhe">Setup R$100 · Mensalidade R$150/mês</div>
+      <ul class="preco-lista">
+        <li>Site de agendamento personalizado</li>
+        <li>Secretaria IA no WhatsApp 24h</li>
+        <li>Lembretes automáticos</li>
+        <li>Painel de agenda do barbeiro</li>
+        <li>Configuração completa inclusa</li>
+        <li>Suporte direto via WhatsApp</li>
+      </ul>
+      <a class="preco-cta outline" href="https://wa.me/595973413527?text=Quero+saber+mais+sobre+o+Barbearia+Digital" target="_blank" rel="noopener">Falar agora</a>
+    </div>
+  </div>
+  <p class="preco-obs">Sem fidelidade mínima · Cancela quando quiser · Sem taxa extra para múltiplos barbeiros</p>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── FAQ ── -->
+<section id="faq">
+  <div class="tag">Dúvidas frequentes</div>
+  <h2>Perguntas comuns</h2>
+  <div class="faq-list">
+    <details>
+      <summary>O cliente precisa instalar algum app?</summary>
+      <div class="faq-body">Não. O cliente usa o WhatsApp que já tem no celular ou acessa o site pelo navegador. Nada para baixar ou cadastrar.</div>
+    </details>
+    <details>
+      <summary>A IA entende mensagens em linguagem natural?</summary>
+      <div class="faq-body">Sim. O cliente pode escrever como quiser — "quero marcar pra sexta de tarde", "tem horário amanhã?", "preciso cancelar meu agendamento" — a IA entende e responde de forma natural.</div>
+    </details>
+    <details>
+      <summary>E se a IA não souber responder algo?</summary>
+      <div class="faq-body">A secretaria responde sobre agendamentos, horários, serviços e preços. Para dúvidas fora desse escopo, ela orienta o cliente a entrar em contato com o barbeiro diretamente.</div>
+    </details>
+    <details>
+      <summary>Funciona com mais de um barbeiro?</summary>
+      <div class="faq-body">Sim. O sistema já suporta múltiplos barbeiros — cada um com sua própria agenda. A configuração multi-barbeiro está inclusa sem custo adicional.</div>
+    </details>
+    <details>
+      <summary>Como funciona o suporte?</summary>
+      <div class="faq-body">Suporte direto via WhatsApp com quem desenvolveu o sistema. Sem call center, sem ticket, sem espera de 5 dias úteis.</div>
+    </details>
+    <details>
+      <summary>Quanto tempo leva para estar no ar?</summary>
+      <div class="faq-body">Em média 2 a 5 dias após a confirmação. Configuramos tudo — site, bot, agenda — e entregamos pronto para usar.</div>
+    </details>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── CTA Final ── -->
+<section id="cta-final">
+  <div class="tag">Comece agora</div>
+  <h2>Pronto para parar de<br><span class="gold">perder agendamentos</span>?</h2>
+  <p>Manda uma mensagem agora. Em menos de 5 minutos você vê o sistema funcionando com o nome da sua barbearia.</p>
+  <a class="btn-primary" style="display:inline-flex; font-size:1.05rem; padding:16px 32px;" href="https://wa.me/595973413527?text=Oi%21+Vi+o+Barbearia+Digital+e+quero+ver+uma+demonstra%C3%A7%C3%A3o." target="_blank" rel="noopener">
+    <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.845L0 24l6.336-1.508A11.934 11.934 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.88 0-3.644-.492-5.17-1.354l-.369-.218-3.764.897.931-3.658-.24-.376A9.959 9.959 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+    Quero uma demonstração
+  </a>
+</section>
+
+<footer>
+  <p>Barbearia Digital &nbsp;·&nbsp; Desenvolvido por Marcos Bona &nbsp;·&nbsp; <a href="https://wa.me/595973413527" style="color:var(--gold); text-decoration:none;">+595 973 413527</a></p>
+</footer>
+
+</body>
+</html>
