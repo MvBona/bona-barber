@@ -133,9 +133,15 @@
     .cbar { width:75%; height:3px; border-radius:2px; margin-top:3px; }
     .ccount { font-size:.62rem; color:var(--muted); margin-top:3px; letter-spacing:.04em; }
 
+    /* ── DEMO BANNER ── */
+    #demo-banner { display:none; background:rgba(201,164,71,.12); border-bottom:1px solid rgba(201,164,71,.35); text-align:center; padding:.55rem 1rem; font-size:.7rem; letter-spacing:.1em; color:var(--gold); text-transform:uppercase; }
+
     /* ── FOOTER ── */
     footer { text-align:center; padding:1.8rem 1rem; color:var(--muted); font-size:.7rem; letter-spacing:.12em; border-top:1px solid var(--border); }
     footer span { color:var(--gold); }
+    #footer-address { margin-top:.6rem; font-size:.68rem; color:#555; letter-spacing:.08em; display:none; }
+    #footer-address a { color:var(--muted); text-decoration:none; }
+    #footer-address a:hover { color:var(--gold); }
     #last-update { font-size:.6rem; color:#333; margin-top:.4rem; letter-spacing:.08em; transition:color .4s; }
     #last-update.fresh { color:var(--gold); }
 
@@ -237,11 +243,17 @@
   <button              data-view="proximo" onclick="setView('proximo')">Próximo</button>
 </nav>
 
+<div id="demo-banner">✦ Modo Demonstração — agendamentos desabilitados ✦</div>
+
 <div id="prof-filter" style="display:none"></div>
 
 <main><div id="content"><div class="loading"><div class="spinner"></div><br>Carregando...</div></div></main>
 
-<footer>Agenda — <span id="footer-name">...</span><div id="last-update"></div></footer>
+<footer>
+  Agenda — <span id="footer-name">...</span>
+  <div id="footer-address"></div>
+  <div id="last-update"></div>
+</footer>
 
 <div id="modal" class="modal-overlay" style="display:none" onclick="handleOverlayClick(event)">
   <div class="modal-box">
@@ -277,6 +289,12 @@ async function loadSiteConfig() {
     document.getElementById('site-title').textContent = siteConfig.nome;
     document.getElementById('site-sub').textContent = siteConfig.subtitulo || '';
     document.getElementById('footer-name').textContent = siteConfig.nome;
+    if (siteConfig.endereco) {
+      const el = document.getElementById('footer-address');
+      const url = siteConfig.enderecoMaps || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(siteConfig.endereco)}`;
+      el.innerHTML = `📍 <a href="${url}" target="_blank" rel="noopener">${siteConfig.endereco}</a>`;
+      el.style.display = 'block';
+    }
 
     if (siteConfig.logoEmoji) {
       document.getElementById('header-logo').innerHTML = `<span class="logo-emoji">${siteConfig.logoEmoji}</span>`;
@@ -666,6 +684,14 @@ function renderBookBtn() {
 }
 
 function handleWaBook(e) {
+  if (DEMO_MODE) {
+    e.preventDefault();
+    const msg = document.getElementById('book-msg');
+    msg.textContent = '✦ Modo demonstração — em sua barbearia, o cliente seria enviado direto para o WhatsApp.';
+    msg.className = 'modal-msg';
+    msg.style.color = 'var(--gold)';
+    return;
+  }
   const nome = document.getElementById('book-nome').value.trim();
   if (!nome) {
     e.preventDefault();
@@ -697,9 +723,12 @@ function handleOverlayClick(e) {
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
+const DEMO_MODE = new URLSearchParams(location.search).get('demo') === 'true';
+
 // Init
 (async () => {
   await loadSiteConfig();
+  if (DEMO_MODE) document.getElementById('demo-banner').style.display = 'block';
   document.getElementById('btn-pt').classList.toggle('active', lang==='pt');
   document.getElementById('btn-es').classList.toggle('active', lang==='es');
   document.querySelectorAll('nav button').forEach(b => { b.textContent = t().nav[b.dataset.view]; });

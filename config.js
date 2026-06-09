@@ -31,6 +31,9 @@ module.exports = {
   subtitulo: "Barbiere · Agenda Online",
   logo: "logo-bona.svg",
 
+  endereco: "Rua Exemplo, 123 — Cidade, País",
+  // enderecoMaps: "https://maps.app.goo.gl/...", // opcional: link direto do Google Maps
+
   cancelamentoMinHoras: 2,
   maxAgendamentosPorDia: 2,
   confirmarSeLessDe: 60,
