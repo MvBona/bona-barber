@@ -948,7 +948,10 @@ async function processAccumulatedMessages(phone, name) {
 
   // ── IA principal ─────────────────────────────────────────────────────────
   try {
-    const slots = await getAvailableSlots();
+    const allSlots = await getAvailableSlots();
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() + 7);
+    const cutoffStr = cutoff.toISOString().split("T")[0];
+    const slots = allSlots.filter(s => s.data <= cutoffStr);
     const result = await interpretMessage(combinedText, slots, name, phone);
     console.log("Intenção identificada:", result);
 
