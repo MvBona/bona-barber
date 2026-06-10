@@ -1200,6 +1200,8 @@ app.get("/api/config", (req, res) => {
     profissionais: (config.profissionais || []).map((p) => ({ id: p.id, nome: p.nome })),
     distribuicao: config.distribuicao || "auto",
     diasFechado: config.diasFechado || [],
+    endereco: config.endereco || null,
+    enderecoMaps: config.enderecoMaps || null,
   });
 });
 
