@@ -1476,8 +1476,13 @@ app.get("/api/barbeiro/agenda", barberAuth, async (req, res) => {
       cursor.setDate(cursor.getDate() + 1);
     }
   } else if (view === "mes") {
-    const first = new Date(n.getFullYear(), n.getMonth(), 1);
-    const last = new Date(n.getFullYear(), n.getMonth() + 1, 0);
+    const target = req.query.month;
+    let ty = n.getFullYear(), tm = n.getMonth() + 1;
+    if (target && /^\d{4}-\d{2}$/.test(target)) {
+      [ty, tm] = target.split("-").map(Number);
+    }
+    const first = new Date(ty, tm - 1, 1);
+    const last = new Date(ty, tm, 0);
     for (let d = new Date(first); d <= last; d.setDate(d.getDate() + 1))
       if (!config.diasFechado.includes(d.getDay())) dates.push(FMT(new Date(d)));
   }

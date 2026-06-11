@@ -375,6 +375,7 @@ let TOKEN = sessionStorage.getItem('barber_token');
 let SESSION = null;
 let currentView = 'dia';
 let currentDate = todayStr();
+let currentMonth = todayMonth();
 let currentProf = null;
 let waStatus = 'disconnected';
 let qrInterval = null;
@@ -385,6 +386,12 @@ function todayStr() {
   const n = new Date();
   const pad = x => String(x).padStart(2,'0');
   return `${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}`;
+}
+
+function todayMonth() {
+  const n = new Date();
+  const pad = x => String(x).padStart(2,'0');
+  return `${n.getFullYear()}-${pad(n.getMonth()+1)}`;
 }
 
 function showToast(msg, ms = 2500) {
@@ -502,9 +509,10 @@ function startMain() {
 
 function setView(v) {
   currentView = v;
-  currentDate = todayStr();
+  if (v === 'dia') currentDate = todayStr();
+  if (v === 'mes') currentMonth = todayMonth();
   document.querySelectorAll('.view-tab').forEach(b => b.classList.toggle('active', b.dataset.view === v));
-  document.getElementById('date-nav').style.display = v === 'dia' ? 'flex' : 'none';
+  document.getElementById('date-nav').style.display = (v === 'dia' || v === 'mes') ? 'flex' : 'none';
   loadAgenda();
 }
 
@@ -518,9 +526,16 @@ function setProfFilter(profId) {
 }
 
 function navDate(dir) {
-  const d = new Date(currentDate + 'T12:00:00');
-  d.setDate(d.getDate() + dir);
-  currentDate = d.toISOString().split('T')[0];
+  if (currentView === 'mes') {
+    const [y, m] = currentMonth.split('-').map(Number);
+    const d = new Date(y, m - 1 + dir, 1);
+    const pad = x => String(x).padStart(2,'0');
+    currentMonth = `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+  } else {
+    const d = new Date(currentDate + 'T12:00:00');
+    d.setDate(d.getDate() + dir);
+    currentDate = d.toISOString().split('T')[0];
+  }
   loadAgenda();
 }
 
@@ -530,8 +545,9 @@ const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Ag
 async function loadAgenda() {
   const profQ = currentProf ? `&profissional=${currentProf}` : '';
   const dateQ = currentView === 'dia' ? `&date=${currentDate}` : '';
+  const monthQ = currentView === 'mes' ? `&month=${currentMonth}` : '';
   try {
-    const data = await apiFetch(`/api/barbeiro/agenda?view=${currentView}${dateQ}${profQ}`);
+    const data = await apiFetch(`/api/barbeiro/agenda?view=${currentView}${dateQ}${monthQ}${profQ}`);
     renderAgenda(data);
     if (currentView === 'dia') updateDateNav();
   } catch (e) {
@@ -541,10 +557,15 @@ async function loadAgenda() {
 }
 
 function updateDateNav() {
-  const d = new Date(currentDate + 'T12:00:00');
-  const todayFmt = todayStr();
-  document.getElementById('date-nav-title').textContent = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
-  document.getElementById('date-nav-sub').textContent = currentDate === todayFmt ? 'Hoje · ' + DIAS[d.getDay()] : DIAS[d.getDay()];
+  if (currentView === 'mes') {
+    const [y, m] = currentMonth.split('-').map(Number);
+    document.getElementById('date-nav-title').textContent = `${MESES[m-1]} ${y}`;
+    document.getElementById('date-nav-sub').textContent = currentMonth === todayMonth() ? 'Mês atual' : '';
+  } else {
+    const d = new Date(currentDate + 'T12:00:00');
+    document.getElementById('date-nav-title').textContent = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+    document.getElementById('date-nav-sub').textContent = currentDate === todayStr() ? 'Hoje · ' + DIAS[d.getDay()] : DIAS[d.getDay()];
+  }
 }
 
 function renderAgenda(data) {
@@ -577,6 +598,8 @@ function renderAgenda(data) {
     html += '</div>';
   } else {
     // Month calendar
+    document.getElementById('date-nav').style.display = 'flex';
+    updateDateNav();
     if (!data.dates.length) { html = '<div class="loading">Sem dados</div>'; }
     else {
       const firstDate = data.dates[0].date;
@@ -585,7 +608,6 @@ function renderAgenda(data) {
       for (const d of data.dates) slotsByDate[d.date] = d.slots;
       const firstDay = new Date(y, m-1, 1).getDay();
       const lastDay = new Date(y, m, 0).getDate();
-      html = `<div style="font-family:'Cinzel',serif;font-size:.95rem;font-weight:700;color:var(--gold);padding:.6rem 0 .5rem;letter-spacing:.06em">${MESES[m-1]} ${y}</div>`;
       html += '<div class="cal-wrap"><div class="cal-inner">';
       html += `<div class="cal-head">${DIAS.map(d=>`<div class="cal-wn">${d}</div>`).join('')}</div>`;
       html += '<div class="cal-grid">';
