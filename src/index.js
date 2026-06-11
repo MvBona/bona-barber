@@ -983,16 +983,16 @@ async function processAccumulatedMessages(phone, name) {
           if (!profDisp?.disponivelNoHorario) {
             // Profissional preferido não disponível — mostra alternativas
             const selMsg = await sendProfissionalSelection(phone, result.data, result.horario, disponibilidade);
-            waitingForProfissional.set(phone, { data: result.data, horario: result.horario, servico: result.servicos?.[0] || null, nomePendente: nomeFinal, disponibilidade });
+            waitingForProfissional.set(phone, { data: result.data, horario: result.horario, servico: result.servicos?.length ? result.servicos.join(' + ') : null, nomePendente: nomeFinal, disponibilidade });
             await sendMessage(phone, `${prefProf.nome} não está disponível neste horário.\n\n${selMsg}`);
             return;
           }
           // Profissional preferido disponível — prossegue direto
           if (!nomeFinal) {
-            waitingForNameToBook.set(phone, { data: result.data, horario: result.horario, profId: prefProf.id, servico: result.servicos?.[0] || null });
+            waitingForNameToBook.set(phone, { data: result.data, horario: result.horario, profId: prefProf.id, servico: result.servicos?.length ? result.servicos.join(' + ') : null });
             await sendMessage(phone, tr(phone, "waitingName"));
           } else {
-            const booked = await bookSlot(result.data, result.horario, prefProf.id, result.servicos?.[0] || null, nomeFinal, phone);
+            const booked = await bookSlot(result.data, result.horario, prefProf.id, result.servicos?.length ? result.servicos.join(' + ') : null, nomeFinal, phone);
             if (!booked) {
               await sendMessage(phone, tr(phone, "slotTaken"));
             } else {
@@ -1014,7 +1014,7 @@ async function processAccumulatedMessages(phone, name) {
 
         // Nenhum profissional preferido — pede seleção
         const selMsg = await sendProfissionalSelection(phone, result.data, result.horario, disponibilidade);
-        waitingForProfissional.set(phone, { data: result.data, horario: result.horario, servico: result.servicos?.[0] || null, nomePendente: nomeFinal, disponibilidade });
+        waitingForProfissional.set(phone, { data: result.data, horario: result.horario, servico: result.servicos?.length ? result.servicos.join(' + ') : null, nomePendente: nomeFinal, disponibilidade });
         await sendMessage(phone, selMsg);
         return;
       }
@@ -1034,10 +1034,10 @@ async function processAccumulatedMessages(phone, name) {
       if (!profEscolhido) { await sendMessage(phone, tr(phone, "slotTaken")); return; }
 
       if (!nomeFinal) {
-        waitingForNameToBook.set(phone, { data: result.data, horario: result.horario, profId: profEscolhido.id, servico: result.servicos?.[0] || null });
+        waitingForNameToBook.set(phone, { data: result.data, horario: result.horario, profId: profEscolhido.id, servico: result.servicos?.length ? result.servicos.join(' + ') : null });
         await sendMessage(phone, tr(phone, "waitingName"));
       } else {
-        const booked = await bookSlot(result.data, result.horario, profEscolhido.id, result.servicos?.[0] || null, nomeFinal, phone);
+        const booked = await bookSlot(result.data, result.horario, profEscolhido.id, result.servicos?.length ? result.servicos.join(' + ') : null, nomeFinal, phone);
         if (!booked) {
           await sendMessage(phone, tr(phone, "slotTaken"));
         } else {
