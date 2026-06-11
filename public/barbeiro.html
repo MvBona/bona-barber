@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel do Barbeiro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:     #080808; --bg2: #111; --bg3: #1a1a1a;
+      --gold:   #c9a447; --gold-dim: rgba(201,164,71,.12);
+      --text:   #f0ece0; --muted: #666; --border: #222;
+      --green:  #4caf7d; --red: #e05555; --orange: #e09030;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── LOGIN ── */
+    #login-screen {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem;
+      background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(201,164,71,.1), transparent);
+    }
+    .login-box {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 16px;
+      padding: 2.5rem 2rem; width: 100%; max-width: 360px;
+    }
+    .login-logo { text-align: center; margin-bottom: 2rem; }
+    .login-logo h1 { font-family: 'Cinzel', serif; font-size: 1.5rem; color: var(--gold); letter-spacing: .12em; }
+    .login-logo p { color: var(--muted); font-size: .72rem; letter-spacing: .2em; text-transform: uppercase; margin-top: .3rem; }
+    .form-group { margin-bottom: 1.2rem; }
+    .form-group label { display: block; font-size: .75rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-bottom: .5rem; }
+    .form-group select, .form-group input {
+      width: 100%; background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+      border-radius: 8px; padding: .75rem 1rem; font-size: .95rem; font-family: inherit;
+      transition: border-color .2s; appearance: none;
+    }
+    .form-group select:focus, .form-group input:focus { outline: none; border-color: var(--gold); }
+    .pin-input { font-size: 1.8rem; letter-spacing: .5em; text-align: center; font-family: 'Cinzel', serif; }
+    .btn-primary {
+      width: 100%; background: var(--gold); color: #000; border: none;
+      padding: .9rem; border-radius: 8px; font-family: 'Cinzel', serif;
+      font-size: .8rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+      cursor: pointer; transition: background .2s, transform .1s; margin-top: .4rem;
+    }
+    .btn-primary:hover { background: #e4c878; }
+    .btn-primary:active { transform: scale(.98); }
+    .login-alt { text-align: center; margin-top: 1rem; }
+    .login-alt button { background: none; border: none; color: var(--muted); font-size: .78rem; cursor: pointer; text-decoration: underline; }
+    .login-alt button:hover { color: var(--gold); }
+    .login-err { color: var(--red); font-size: .8rem; text-align: center; margin-top: .8rem; min-height: 1.2em; }
+
+    /* ── MAIN ── */
+    #main-screen { display: none; flex-direction: column; min-height: 100vh; }
+
+    /* Header */
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .9rem 1.2rem; background: var(--bg2); border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 50;
+    }
+    .panel-header-left h2 { font-family: 'Cinzel', serif; font-size: 1rem; color: var(--gold); }
+    .panel-header-left span { font-size: .7rem; color: var(--muted); letter-spacing: .06em; }
+    .btn-logout { background: none; border: 1px solid var(--border); color: var(--muted); padding: .4rem .9rem; border-radius: 6px; font-size: .72rem; cursor: pointer; letter-spacing: .06em; transition: all .2s; }
+    .btn-logout:hover { border-color: var(--red); color: var(--red); }
+
+    /* WA Status bar */
+    #wa-bar {
+      display: flex; align-items: center; gap: .6rem; padding: .55rem 1.2rem;
+      font-size: .75rem; letter-spacing: .06em; border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+    #wa-bar.connected { background: rgba(76,175,125,.08); color: var(--green); }
+    #wa-bar.disconnected { background: rgba(224,85,85,.08); color: var(--red); }
+    #wa-bar.connecting { background: rgba(224,144,48,.08); color: var(--orange); }
+    .wa-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    #wa-bar.connected .wa-dot { background: var(--green); }
+    #wa-bar.disconnected .wa-dot { background: var(--red); }
+    #wa-bar.connecting .wa-dot { background: var(--orange); animation: pulse .8s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+    #wa-bar .wa-action { margin-left: auto; font-size: .68rem; color: var(--muted); }
+
+    /* QR section */
+    #qr-section {
+      display: none; text-align: center; padding: 2rem 1.5rem;
+      background: var(--bg2); border-bottom: 1px solid var(--border);
+    }
+    #qr-section h3 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1rem; margin-bottom: .5rem; }
+    #qr-section p { color: var(--muted); font-size: .8rem; margin-bottom: 1.2rem; }
+    #qr-canvas { background: #fff; padding: 12px; border-radius: 8px; display: inline-block; }
+    #qr-section .qr-hint { font-size: .7rem; color: var(--muted); margin-top: .8rem; }
+
+    /* View tabs */
+    .view-tabs {
+      display: flex; background: var(--bg2); border-bottom: 1px solid var(--border);
+      overflow-x: auto; scrollbar-width: none;
+    }
+    .view-tabs::-webkit-scrollbar { display: none; }
+    .view-tab {
+      flex: 1; min-width: 70px; padding: .8rem .4rem; background: none; border: none;
+      border-bottom: 2px solid transparent; color: var(--muted);
+      font-family: 'Cinzel', serif; font-size: .65rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; cursor: pointer; transition: all .2s; white-space: nowrap;
+    }
+    .view-tab.active { color: var(--gold); border-bottom-color: var(--gold); background: var(--gold-dim); }
+
+    /* Prof filter (dono only) */
+    #prof-filter-bar {
+      display: none; padding: .6rem 1.2rem; background: var(--bg2);
+      border-bottom: 1px solid var(--border); gap: .4rem; flex-wrap: wrap;
+    }
+    .prof-chip {
+      padding: .35rem .8rem; border-radius: 99px; font-size: .72rem; cursor: pointer;
+      border: 1px solid var(--border); background: var(--bg3); color: var(--muted);
+      transition: all .18s;
+    }
+    .prof-chip.active { border-color: var(--gold); background: var(--gold-dim); color: var(--gold); }
+
+    /* Date nav */
+    .date-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .8rem 1.2rem; max-width: 860px; margin: 0 auto; width: 100%;
+    }
+    .date-nav button {
+      width: 38px; height: 38px; background: var(--bg3); border: 1px solid var(--border);
+      color: var(--gold); border-radius: 50%; font-size: 1.1rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; transition: all .2s;
+    }
+    .date-nav button:hover { background: var(--gold-dim); border-color: var(--gold); }
+    .date-nav-title { font-family: 'Cinzel', serif; font-size: 1rem; font-weight: 700; text-align: center; }
+    .date-nav-sub { font-size: .68rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+
+    /* Content */
+    #agenda-content { max-width: 860px; margin: 0 auto; width: 100%; padding: 0 1rem 3rem; }
+
+    /* Slot rows */
+    .slot-row {
+      display: flex; align-items: center; gap: .8rem;
+      padding: .85rem 1rem; background: var(--bg2);
+      border: 1px solid var(--border); border-left: 3px solid transparent;
+      border-radius: 8px; margin-bottom: .4rem; transition: all .15s;
+    }
+    .slot-row.livre { border-left-color: var(--green); }
+    .slot-row.agendado { border-left-color: var(--gold); }
+    .slot-row.bloqueado { border-left-color: var(--muted); opacity: .5; }
+    .slot-row.passado { opacity: .3; }
+    .slot-time { font-family: 'Cinzel', serif; font-size: .95rem; font-weight: 600; min-width: 50px; }
+    .slot-info { flex: 1; }
+    .slot-name { font-size: .88rem; font-weight: 500; }
+    .slot-meta { font-size: .72rem; color: var(--muted); margin-top: .15rem; }
+    .slot-status { font-size: .65rem; letter-spacing: .08em; text-transform: uppercase; }
+    .slot-row.livre .slot-status { color: var(--green); }
+    .slot-row.agendado .slot-status { color: var(--gold); }
+    .slot-row.bloqueado .slot-status { color: var(--muted); }
+    .slot-actions { display: flex; gap: .4rem; }
+    .slot-btn {
+      padding: .3rem .6rem; border-radius: 5px; font-size: .68rem; cursor: pointer;
+      border: 1px solid var(--border); background: var(--bg3); color: var(--muted);
+      transition: all .15s; white-space: nowrap;
+    }
+    .slot-btn:hover { border-color: var(--gold); color: var(--gold); }
+    .slot-btn.danger:hover { border-color: var(--red); color: var(--red); }
+
+    /* Day header in week/month */
+    .day-header {
+      font-family: 'Cinzel', serif; font-size: .72rem; letter-spacing: .12em; color: var(--muted);
+      text-transform: uppercase; padding: 1rem 0 .4rem; border-bottom: 1px solid var(--border);
+      margin-bottom: .6rem;
+    }
+    .day-header.today { color: var(--gold); }
+
+    /* Month calendar */
+    .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; margin-top: .6rem; }
+    .cal-head { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; margin-bottom: 4px; }
+    .cal-wn { text-align: center; font-size: .6rem; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; padding: .2rem; }
+    .cal-cell {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
+      padding: .5rem .3rem; text-align: center; min-height: 56px;
+      cursor: pointer; transition: all .15s; position: relative;
+    }
+    .cal-cell.empty, .cal-cell.sunday { cursor: default; opacity: .2; }
+    .cal-cell.past { opacity: .35; cursor: default; }
+    .cal-cell.today { border-color: var(--gold); }
+    .cal-cell:not(.empty):not(.sunday):not(.past):hover { border-color: var(--gold); background: var(--gold-dim); }
+    .cdn { font-size: .78rem; font-weight: 600; }
+    .cbar { width: 70%; height: 3px; border-radius: 2px; margin: 3px auto 0; }
+    .ccount { font-size: .58rem; color: var(--muted); margin-top: 2px; }
+
+    /* Toast */
+    #toast {
+      position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+      padding: .7rem 1.2rem; font-size: .82rem; color: var(--text);
+      opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 999;
+      white-space: nowrap;
+    }
+    #toast.show { opacity: 1; }
+
+    /* Loading */
+    .loading { text-align: center; padding: 3rem 1rem; color: var(--muted); font-size: .85rem; }
+    .spinner { display: inline-block; width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin .8s linear infinite; margin-bottom: .8rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 500px) {
+      .slot-row { flex-wrap: wrap; }
+      .slot-actions { width: 100%; justify-content: flex-end; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── LOGIN ── -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <h1 id="login-nome-barber">Barbearia</h1>
+      <p>Painel do Barbeiro</p>
+    </div>
+    <div id="login-form">
+      <div class="form-group">
+        <label>Profissional</label>
+        <select id="prof-select"></select>
+      </div>
+      <div class="form-group">
+        <label>PIN</label>
+        <input id="pin-input" type="password" inputmode="numeric" maxlength="8" class="pin-input" placeholder="••••" autocomplete="current-password">
+      </div>
+      <button class="btn-primary" onclick="doLogin()">Entrar</button>
+      <div class="login-err" id="login-err"></div>
+      <div class="login-alt"><button onclick="showSetup()">Primeiro acesso? Criar PIN</button></div>
+    </div>
+    <div id="setup-form" style="display:none">
+      <p style="color:var(--muted);font-size:.8rem;margin-bottom:1.2rem;text-align:center">Escolha um PIN de 4 a 8 dígitos. Você só pode configurar uma vez.</p>
+      <div class="form-group">
+        <label>Profissional</label>
+        <select id="setup-prof-select"></select>
+      </div>
+      <div class="form-group">
+        <label>Novo PIN</label>
+        <input id="setup-pin" type="password" inputmode="numeric" maxlength="8" class="pin-input" placeholder="••••">
+      </div>
+      <div class="form-group">
+        <label>Confirmar PIN</label>
+        <input id="setup-pin2" type="password" inputmode="numeric" maxlength="8" class="pin-input" placeholder="••••">
+      </div>
+      <button class="btn-primary" onclick="doSetup()">Criar PIN</button>
+      <div class="login-err" id="setup-err"></div>
+      <div class="login-alt"><button onclick="showLogin()">← Voltar</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MAIN ── -->
+<div id="main-screen">
+  <div class="panel-header">
+    <div class="panel-header-left">
+      <h2 id="header-barbeiro-nome">Painel</h2>
+      <span id="header-barbeiro-sub">carregando...</span>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">Sair</button>
+  </div>
+
+  <div id="wa-bar" onclick="toggleQR()">
+    <div class="wa-dot"></div>
+    <span id="wa-status-text">Verificando...</span>
+    <span class="wa-action" id="wa-action-hint"></span>
+  </div>
+
+  <div id="qr-section">
+    <h3>Conectar WhatsApp</h3>
+    <p>Abra o WhatsApp → Dispositivos vinculados → Vincular dispositivo</p>
+    <div id="qr-canvas"></div>
+    <p class="qr-hint">QR atualiza automaticamente a cada 30 segundos</p>
+  </div>
+
+  <div class="view-tabs">
+    <button class="view-tab active" data-view="dia" onclick="setView('dia')">Hoje</button>
+    <button class="view-tab" data-view="semana" onclick="setView('semana')">Semana</button>
+    <button class="view-tab" data-view="mes" onclick="setView('mes')">Mês</button>
+  </div>
+
+  <div id="prof-filter-bar"></div>
+
+  <div class="date-nav" id="date-nav" style="display:none">
+    <button onclick="navDate(-1)">‹</button>
+    <div style="text-align:center">
+      <div class="date-nav-title" id="date-nav-title"></div>
+      <div class="date-nav-sub" id="date-nav-sub"></div>
+    </div>
+    <button onclick="navDate(1)">›</button>
+  </div>
+
+  <div id="agenda-content"><div class="loading"><div class="spinner"></div><br>Carregando...</div></div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const API = '';
+let TOKEN = sessionStorage.getItem('barber_token');
+let SESSION = null;
+let currentView = 'dia';
+let currentDate = todayStr();
+let currentProf = null;
+let waStatus = 'disconnected';
+let qrInterval = null;
+let agendaInterval = null;
+let profissionais = [];
+
+function todayStr() {
+  const n = new Date();
+  const pad = x => String(x).padStart(2,'0');
+  return `${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}`;
+}
+
+function showToast(msg, ms = 2500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), ms);
+}
+
+async function apiFetch(url, opts = {}) {
+  const res = await fetch(url, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}`, ...(opts.headers || {}) },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw { status: res.status, ...data };
+  return data;
+}
+
+// ── Auth ──
+async function init() {
+  // Load profissionais for selects
+  try {
+    const cfg = await fetch('/api/config').then(r => r.json());
+    profissionais = cfg.profissionais || [];
+    document.getElementById('login-nome-barber').textContent = cfg.nome || 'Barbearia';
+    populateSelects();
+  } catch {}
+
+  if (TOKEN) {
+    try {
+      SESSION = await apiFetch('/api/barbeiro/me');
+      showMain();
+      return;
+    } catch { TOKEN = null; sessionStorage.removeItem('barber_token'); }
+  }
+  showLoginScreen();
+}
+
+function populateSelects() {
+  ['prof-select', 'setup-prof-select'].forEach(id => {
+    const el = document.getElementById(id);
+    el.innerHTML = profissionais.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
+  });
+}
+
+function showLoginScreen() { document.getElementById('login-screen').style.display = 'flex'; document.getElementById('main-screen').style.display = 'none'; }
+function showMain() { document.getElementById('login-screen').style.display = 'none'; document.getElementById('main-screen').style.display = 'flex'; startMain(); }
+function showLogin() { document.getElementById('login-form').style.display = ''; document.getElementById('setup-form').style.display = 'none'; document.getElementById('login-err').textContent = ''; }
+function showSetup() { document.getElementById('login-form').style.display = 'none'; document.getElementById('setup-form').style.display = ''; document.getElementById('setup-err').textContent = ''; }
+
+async function doLogin() {
+  const profId = document.getElementById('prof-select').value;
+  const pin = document.getElementById('pin-input').value.trim();
+  const err = document.getElementById('login-err');
+  err.textContent = '';
+  try {
+    const res = await fetch('/api/barbeiro/login', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ profId, pin }) });
+    const data = await res.json();
+    if (!res.ok) {
+      if (data.setup) { err.textContent = 'PIN não configurado. Clique em "Primeiro acesso".'; return; }
+      err.textContent = data.error || 'Erro ao entrar';
+      return;
+    }
+    TOKEN = data.token;
+    SESSION = data;
+    sessionStorage.setItem('barber_token', TOKEN);
+    showMain();
+  } catch { err.textContent = 'Erro de conexão'; }
+}
+
+async function doSetup() {
+  const profId = document.getElementById('setup-prof-select').value;
+  const pin = document.getElementById('setup-pin').value.trim();
+  const pin2 = document.getElementById('setup-pin2').value.trim();
+  const err = document.getElementById('setup-err');
+  err.textContent = '';
+  if (pin.length < 4) { err.textContent = 'PIN deve ter ao menos 4 dígitos'; return; }
+  if (pin !== pin2) { err.textContent = 'PINs não conferem'; return; }
+  try {
+    const res = await fetch('/api/barbeiro/pin/setup', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ profId, pin }) });
+    const data = await res.json();
+    if (!res.ok) { err.textContent = data.error || 'Erro'; return; }
+    showToast('PIN criado! Agora faça login.');
+    showLogin();
+  } catch { err.textContent = 'Erro de conexão'; }
+}
+
+function doLogout() {
+  TOKEN = null; SESSION = null;
+  sessionStorage.removeItem('barber_token');
+  clearInterval(qrInterval); clearInterval(agendaInterval);
+  showLoginScreen();
+}
+
+// ── Main ──
+function startMain() {
+  document.getElementById('header-barbeiro-nome').textContent = SESSION.nome;
+  document.getElementById('header-barbeiro-sub').textContent = SESSION.role === 'dono' ? 'Dono · acesso total' : 'Barbeiro';
+
+  // Prof filter (dono only)
+  if (SESSION.role === 'dono' && profissionais.length > 1) {
+    const bar = document.getElementById('prof-filter-bar');
+    bar.style.display = 'flex';
+    bar.innerHTML = [{ id: null, nome: 'Todos' }, ...profissionais].map(p =>
+      `<button class="prof-chip${p.id === currentProf ? ' active' : ''}" onclick="setProfFilter(${p.id ? `'${p.id}'` : 'null'})">${p.nome}</button>`
+    ).join('');
+  }
+
+  loadAgenda();
+  checkWA();
+  agendaInterval = setInterval(loadAgenda, 60000);
+  setInterval(checkWA, 30000);
+}
+
+function setView(v) {
+  currentView = v;
+  currentDate = todayStr();
+  document.querySelectorAll('.view-tab').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+  document.getElementById('date-nav').style.display = v === 'dia' ? 'flex' : 'none';
+  loadAgenda();
+}
+
+function setProfFilter(profId) {
+  currentProf = profId;
+  document.querySelectorAll('.prof-chip').forEach(c => {
+    const isAll = c.textContent === 'Todos';
+    c.classList.toggle('active', isAll ? profId === null : c.textContent === (profissionais.find(p=>p.id===profId)?.nome || ''));
+  });
+  loadAgenda();
+}
+
+function navDate(dir) {
+  const d = new Date(currentDate + 'T12:00:00');
+  d.setDate(d.getDate() + dir);
+  currentDate = d.toISOString().split('T')[0];
+  loadAgenda();
+}
+
+const DIAS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+async function loadAgenda() {
+  const profQ = currentProf ? `&profissional=${currentProf}` : '';
+  const dateQ = currentView === 'dia' ? `&date=${currentDate}` : '';
+  try {
+    const data = await apiFetch(`/api/barbeiro/agenda?view=${currentView}${dateQ}${profQ}`);
+    renderAgenda(data);
+    if (currentView === 'dia') updateDateNav();
+  } catch (e) {
+    if (e.status === 401) { doLogout(); return; }
+    document.getElementById('agenda-content').innerHTML = '<div class="loading">Erro ao carregar agenda</div>';
+  }
+}
+
+function updateDateNav() {
+  const d = new Date(currentDate + 'T12:00:00');
+  const todayFmt = todayStr();
+  document.getElementById('date-nav-title').textContent = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+  document.getElementById('date-nav-sub').textContent = currentDate === todayFmt ? 'Hoje · ' + DIAS[d.getDay()] : DIAS[d.getDay()];
+}
+
+function renderAgenda(data) {
+  const today = todayStr();
+  const nowMin = (() => { const n = new Date(); return n.getHours()*60+n.getMinutes(); })();
+  let html = '';
+
+  if (currentView === 'dia') {
+    document.getElementById('date-nav').style.display = 'flex';
+    updateDateNav();
+    const dayData = data.dates[0];
+    if (!dayData || !dayData.slots.length) { html = '<div class="loading" style="padding:2rem">Nenhum horário neste dia</div>'; }
+    else {
+      html = dayData.slots.map(s => renderSlot(s, dayData.date, today, nowMin)).join('');
+    }
+  } else if (currentView === 'semana') {
+    for (const day of data.dates) {
+      const d = new Date(day.date + 'T12:00:00');
+      const isToday = day.date === today;
+      html += `<div class="day-header${isToday?' today':'}">${DIAS[d.getDay()]} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}${isToday?' — Hoje':''}</div>`;
+      if (!day.slots.length) html += '<div style="color:var(--muted);font-size:.78rem;padding:.4rem 0 .8rem">Sem horários</div>';
+      else html += day.slots.map(s => renderSlot(s, day.date, today, nowMin)).join('');
+    }
+  } else {
+    // Month calendar
+    if (!data.dates.length) { html = '<div class="loading">Sem dados</div>'; }
+    else {
+      const firstDate = data.dates[0].date;
+      const [y, m] = firstDate.split('-').map(Number);
+      const slotsByDate = {};
+      for (const d of data.dates) slotsByDate[d.date] = d.slots;
+      const firstDay = new Date(y, m-1, 1).getDay();
+      const lastDay = new Date(y, m, 0).getDate();
+      html = `<div style="font-family:'Cinzel',serif;font-size:.9rem;color:var(--gold);padding:.8rem 0 .4rem">${MESES[m-1]} ${y}</div>`;
+      html += `<div class="cal-head">${DIAS.map((d,i)=>`<div class="cal-wn">${d}</div>`).join('')}</div>`;
+      html += '<div class="cal-grid">';
+      for (let i=0;i<firstDay;i++) html += '<div class="cal-cell empty"></div>';
+      for (let d=1;d<=lastDay;d++) {
+        const ds = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const isSun = new Date(ds+'T12:00:00').getDay()===0;
+        const isPast = ds < today;
+        const isToday = ds === today;
+        const slots = slotsByDate[ds] || [];
+        const livre = slots.filter(s=>s.status==='livre').length;
+        const total = slots.filter(s=>s.status!=='bloqueado').length;
+        const ratio = total ? livre/total : 0;
+        const barColor = ratio>0.5?'var(--green)':ratio>0?'var(--orange)':'var(--red)';
+        let cls = 'cal-cell'; if(isSun) cls+=' sunday'; if(isPast) cls+=' past'; if(isToday) cls+=' today';
+        const click = (!isSun && !isPast) ? `onclick="goToDay('${ds}')"` : '';
+        html += `<div class="${cls}" ${click}><div class="cdn">${d}</div>${isSun?'':total?`<div class="cbar" style="background:${barColor}"></div><div class="ccount">${livre>0?livre+'L':livre===0&&total>0?'Lot.':''}</div>`:''}</div>`;
+      }
+      html += '</div>';
+    }
+  }
+  document.getElementById('agenda-content').innerHTML = html;
+}
+
+function goToDay(dateStr) {
+  currentDate = dateStr;
+  setView('dia');
+}
+
+function renderSlot(s, date, today, nowMin) {
+  const [h, min] = s.horario.split(':').map(Number);
+  const isPast = date < today || (date === today && (h*60+min) < nowMin);
+  let cls = `slot-row ${s.status}${isPast?' passado':''}`;
+  const nameHtml = s.status === 'agendado'
+    ? `<div class="slot-name">${s.nome || 'Cliente'}</div><div class="slot-meta">${s.servico || ''}${s.telefone ? ' · '+s.telefone : ''}</div>`
+    : s.status === 'bloqueado'
+    ? `<div class="slot-name" style="color:var(--muted)">Bloqueado</div>`
+    : `<div class="slot-name" style="color:var(--green)">Disponível</div>`;
+
+  let actions = '';
+  if (!isPast) {
+    if (s.status === 'livre') {
+      actions = `<button class="slot-btn" onclick="blockSlot('${date}','${s.horario}','${s.profissional}')">Bloquear</button>`;
+    } else if (s.status === 'agendado') {
+      actions = `<button class="slot-btn danger" onclick="cancelSlot('${date}','${s.horario}','${s.profissional}','${s.nome}')">Cancelar</button>`;
+    } else if (s.status === 'bloqueado') {
+      actions = `<button class="slot-btn" onclick="unblockSlot('${date}','${s.horario}','${s.profissional}')">Liberar</button>`;
+    }
+  }
+
+  return `<div class="${cls}">
+    <div class="slot-time">${s.horario}</div>
+    <div class="slot-info">${nameHtml}<div class="slot-status">${s.status}</div></div>
+    <div class="slot-actions">${actions}</div>
+  </div>`;
+}
+
+async function blockSlot(date, horario, profissional) {
+  if (!confirm(`Bloquear ${horario} em ${date}?`)) return;
+  try {
+    await apiFetch('/api/barbeiro/block', { method: 'POST', body: { date, horario, profissional } });
+    showToast(`${horario} bloqueado`); loadAgenda();
+  } catch (e) { showToast(e.error || 'Erro ao bloquear'); }
+}
+
+async function unblockSlot(date, horario, profissional) {
+  if (!confirm(`Liberar ${horario} em ${date}?`)) return;
+  try {
+    await apiFetch('/api/barbeiro/unblock', { method: 'POST', body: { date, horario, profissional } });
+    showToast(`${horario} liberado`); loadAgenda();
+  } catch (e) { showToast(e.error || 'Erro ao liberar'); }
+}
+
+async function cancelSlot(date, horario, profissional, nome) {
+  if (!confirm(`Cancelar agendamento de ${nome} às ${horario}?`)) return;
+  try {
+    await apiFetch('/api/barbeiro/cancel', { method: 'POST', body: { date, horario, profissional } });
+    showToast(`Agendamento de ${nome} cancelado`); loadAgenda();
+  } catch (e) { showToast(e.error || 'Erro ao cancelar'); }
+}
+
+// ── WhatsApp ──
+async function checkWA() {
+  try {
+    const { status, qr } = await apiFetch('/api/barbeiro/whatsapp');
+    waStatus = status;
+    const bar = document.getElementById('wa-bar');
+    bar.className = `connected disconnected connecting`.split(' ').reduce((acc, c) => acc.replace(c,''), bar.className).trim();
+    bar.classList.add(status);
+    const texts = { connected: '✦ WhatsApp conectado', disconnected: '✦ WhatsApp desconectado', connecting: '✦ Aguardando conexão...' };
+    document.getElementById('wa-status-text').textContent = texts[status] || status;
+    const hint = document.getElementById('wa-action-hint');
+
+    if (status !== 'connected' && SESSION?.role === 'dono') {
+      hint.textContent = qr ? 'Toque para ver QR Code' : 'Reconectando automaticamente...';
+      if (qr) renderQR(qr);
+    } else {
+      hint.textContent = '';
+      document.getElementById('qr-section').style.display = 'none';
+    }
+  } catch {}
+}
+
+function toggleQR() {
+  if (SESSION?.role !== 'dono' || waStatus === 'connected') return;
+  const sec = document.getElementById('qr-section');
+  sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
+}
+
+function renderQR(qrString) {
+  const canvas = document.getElementById('qr-canvas');
+  canvas.innerHTML = '';
+  try {
+    new QRCode(canvas, { text: qrString, width: 200, height: 200, colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.L });
+  } catch {}
+}
+
+// ── Init ──
+init();
+</script>
+</body>
+</html>

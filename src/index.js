@@ -8,16 +8,17 @@ require("dotenv").config();
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 const schedule = require("node-cron");
 const config = require("../config");
 const { tr, clientLanguages } = require("./i18n");
-const { initBaileys, sendMessage, downloadMediaMessage, jidToPhone } = require("./whatsapp");
+const { initBaileys, sendMessage, downloadMediaMessage, jidToPhone, getConnectionStatus, getQRCode } = require("./whatsapp");
 const {
   getAvailableSlots, getProfissionaisDisponibilidade, bookSlot, bookSlotAdmin,
   cancelSlot, cancelSlotAdmin, rescheduleSlot, getAppointmentsForReminder,
   markReminderSent, appendLembretes, getUnconfirmedReminders,
   countClientAppointmentsOnDay, getSlotInfo, getDaySchedule,
-  updateClientPhone, getClientName, getWeeklySummary, getSlotsForDates,
+  updateClientPhone, getClientName, getWeeklySummary, getSlotsForDates, getSlotsAdmin,
   setCustomHours, getProfissionais, isMultiProfessional,
 } = require("./sheets");
 const { interpretMessage, interpretAdminMessage, addToHistory, clearAllHistories } = require("./ai");
@@ -1397,6 +1398,149 @@ if (CRONS_ENABLED) {
 } else {
   console.log("Crons desativados (CRONS_ENABLED=false).");
 }
+
+// ── Painel do Barbeiro ────────────────────────────────────────────────────────
+const PINS_FILE = path.join(__dirname, "../pins.json");
+const SESSIONS = new Map(); // token → { profId, nome, role, expiresAt }
+
+function loadPins() {
+  try { return JSON.parse(fs.readFileSync(PINS_FILE, "utf8")); } catch { return {}; }
+}
+function savePins(pins) {
+  fs.writeFileSync(PINS_FILE, JSON.stringify(pins, null, 2));
+}
+function hashPin(pin) {
+  return crypto.createHash("sha256").update(String(pin)).digest("hex");
+}
+function makeToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
+function barberAuth(req, res, next) {
+  const token = (req.headers.authorization || "").replace("Bearer ", "");
+  const session = SESSIONS.get(token);
+  if (!session || session.expiresAt < Date.now()) return res.status(401).json({ error: "não autenticado" });
+  req.session = session;
+  next();
+}
+
+app.get("/barbeiro", (req, res) => res.sendFile(path.join(__dirname, "../public/barbeiro.html")));
+
+app.post("/api/barbeiro/login", (req, res) => {
+  const { profId, pin } = req.body || {};
+  if (!profId || !pin) return res.status(400).json({ error: "dados inválidos" });
+  const prof = (config.profissionais || []).find(p => p.id === profId);
+  if (!prof) return res.status(401).json({ error: "profissional não encontrado" });
+  const pins = loadPins();
+  if (!pins[profId]) return res.status(401).json({ error: "PIN não configurado", setup: true });
+  if (pins[profId] !== hashPin(pin)) return res.status(401).json({ error: "PIN incorreto" });
+  const token = makeToken();
+  SESSIONS.set(token, { profId, nome: prof.nome, role: prof.role || "barbeiro", expiresAt: Date.now() + 8 * 3600 * 1000 });
+  res.json({ token, nome: prof.nome, role: prof.role || "barbeiro" });
+});
+
+app.post("/api/barbeiro/pin/setup", (req, res) => {
+  const { profId, pin } = req.body || {};
+  if (!profId || !pin || String(pin).length < 4) return res.status(400).json({ error: "PIN inválido (mínimo 4 dígitos)" });
+  const prof = (config.profissionais || []).find(p => p.id === profId);
+  if (!prof) return res.status(400).json({ error: "profissional não encontrado" });
+  const pins = loadPins();
+  if (pins[profId]) return res.status(409).json({ error: "PIN já configurado. Peça ao dono para resetar." });
+  pins[profId] = hashPin(pin);
+  savePins(pins);
+  res.json({ ok: true });
+});
+
+app.get("/api/barbeiro/me", barberAuth, (req, res) => res.json(req.session));
+
+app.get("/api/barbeiro/whatsapp", barberAuth, (req, res) => {
+  const status = getConnectionStatus();
+  const qr = (req.session.role === "dono") ? getQRCode() : null;
+  res.json({ status, qr });
+});
+
+app.get("/api/barbeiro/agenda", barberAuth, async (req, res) => {
+  const { view = "dia", date } = req.query;
+  const isDono = req.session.role === "dono";
+  const profId = isDono ? (req.query.profissional || null) : req.session.profId;
+  const PAD = n => String(n).padStart(2, "0");
+  const FMT = d => `${d.getFullYear()}-${PAD(d.getMonth()+1)}-${PAD(d.getDate())}`;
+  const n = new Date(new Date().toLocaleString("en-US", { timeZone: TZ }));
+  let dates = [];
+  if (view === "dia") {
+    const d = date ? new Date(date + "T12:00:00") : n;
+    if (!config.diasFechado.includes(d.getDay())) dates = [FMT(d)];
+  } else if (view === "semana") {
+    const cursor = new Date(n);
+    while (dates.length < 7) {
+      if (!config.diasFechado.includes(cursor.getDay())) dates.push(FMT(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  } else if (view === "mes") {
+    const first = new Date(n.getFullYear(), n.getMonth(), 1);
+    const last = new Date(n.getFullYear(), n.getMonth() + 1, 0);
+    for (let d = new Date(first); d <= last; d.setDate(d.getDate() + 1))
+      if (!config.diasFechado.includes(d.getDay())) dates.push(FMT(new Date(d)));
+  }
+  try {
+    const data = await getSlotsAdmin(dates, profId);
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: "Erro ao buscar agenda" });
+  }
+});
+
+app.post("/api/barbeiro/pin/reset", barberAuth, (req, res) => {
+  if (req.session.role !== "dono") return res.status(403).json({ error: "apenas o dono pode resetar PINs" });
+  const { profId } = req.body || {};
+  if (!profId) return res.status(400).json({ error: "profId obrigatório" });
+  const pins = loadPins();
+  delete pins[profId];
+  savePins(pins);
+  res.json({ ok: true });
+});
+
+app.post("/api/barbeiro/block", barberAuth, async (req, res) => {
+  const { date, horario, profissional: profIdReq } = req.body || {};
+  if (!date || !horario) return res.status(400).json({ error: "date e horario obrigatórios" });
+  const isDono = req.session.role === "dono";
+  const profId = isDono ? (profIdReq || getProfissionais()[0]?.id) : req.session.profId;
+  if (!isDono && profIdReq && profIdReq !== req.session.profId)
+    return res.status(403).json({ error: "sem permissão" });
+  try {
+    const count = await blockSlot(date, horario, profId);
+    if (!count) return res.status(404).json({ error: "Horário não encontrado" });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/api/barbeiro/unblock", barberAuth, async (req, res) => {
+  const { date, horario, profissional: profIdReq } = req.body || {};
+  if (!date || !horario) return res.status(400).json({ error: "date e horario obrigatórios" });
+  const isDono = req.session.role === "dono";
+  const profId = isDono ? (profIdReq || getProfissionais()[0]?.id) : req.session.profId;
+  if (!isDono && profIdReq && profIdReq !== req.session.profId)
+    return res.status(403).json({ error: "sem permissão" });
+  try {
+    const count = await unblockSlot(date, horario, profId);
+    if (!count) return res.status(404).json({ error: "Horário não estava bloqueado" });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/api/barbeiro/cancel", barberAuth, async (req, res) => {
+  const { date, horario, profissional: profIdReq } = req.body || {};
+  if (!date || !horario) return res.status(400).json({ error: "date e horario obrigatórios" });
+  const isDono = req.session.role === "dono";
+  const profId = isDono ? (profIdReq || null) : req.session.profId;
+  if (!isDono && profIdReq && profIdReq !== req.session.profId)
+    return res.status(403).json({ error: "sem permissão" });
+  try {
+    const cancelled = await cancelSlotAdmin(date, horario, profId);
+    if (!cancelled) return res.status(404).json({ error: "Nenhum agendamento encontrado" });
+    await sendMessage(cancelled.clientPhone, `Olá ${cancelled.clientName}! Seu horário foi cancelado. Entre em contato para reagendar.`).catch(() => {});
+    res.json({ ok: true, nome: cancelled.clientName });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
