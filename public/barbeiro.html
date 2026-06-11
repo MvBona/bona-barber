@@ -256,6 +256,8 @@
     .modal-actions .btn-back:hover { border-color: var(--gold); color: var(--gold); }
     .modal-actions .btn-confirm-cancel { flex: 2; background: transparent; border: 1px solid var(--red); color: var(--red); padding: .8rem; border-radius: 8px; font-family: 'Cinzel', serif; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; transition: all .15s; }
     .modal-actions .btn-confirm-cancel:hover { background: rgba(224,85,85,.12); }
+    .modal-actions .btn-confirm-action { flex: 2; background: transparent; border: 1px solid var(--gold); color: var(--gold); padding: .8rem; border-radius: 8px; font-family: 'Cinzel', serif; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; transition: all .15s; }
+    .modal-actions .btn-confirm-action:hover { background: rgba(182,142,64,.12); }
 
     /* Toast */
     #toast {
@@ -385,6 +387,17 @@
     <div class="modal-actions">
       <button class="btn-back" onclick="closeCancelModal()">Voltar</button>
       <button class="btn-confirm-cancel" onclick="confirmCancel()">Confirmar cancelamento</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirm-modal" style="display:none" class="modal-overlay" onclick="if(event.target===this)closeConfirmModal()">
+  <div class="modal-box">
+    <h3 id="confirm-modal-title"></h3>
+    <p class="modal-sub" id="confirm-modal-sub"></p>
+    <div class="modal-actions">
+      <button class="btn-back" onclick="closeConfirmModal()">Voltar</button>
+      <button class="btn-confirm-action" onclick="execConfirmAction()">Confirmar</button>
     </div>
   </div>
 </div>
@@ -730,20 +743,51 @@ function renderSlot(s, date, today, nowMin) {
   </div>`;
 }
 
-async function blockSlot(date, horario, profissional) {
-  if (!confirm(`Bloquear ${horario} em ${date}?`)) return;
-  try {
-    await apiFetch('/api/barbeiro/block', { method: 'POST', body: { date, horario, profissional } });
-    showToast(`${horario} bloqueado`); loadAgenda();
-  } catch (e) { showToast(e.error || 'Erro ao bloquear'); }
+let _confirmPending = null;
+
+function openConfirmModal(title, sub, fn) {
+  _confirmPending = fn;
+  document.getElementById('confirm-modal-title').textContent = title;
+  document.getElementById('confirm-modal-sub').textContent = sub;
+  document.getElementById('confirm-modal').style.display = 'flex';
+}
+function closeConfirmModal() {
+  document.getElementById('confirm-modal').style.display = 'none';
+  _confirmPending = null;
+}
+async function execConfirmAction() {
+  if (!_confirmPending) return;
+  const fn = _confirmPending;
+  closeConfirmModal();
+  await fn();
 }
 
-async function unblockSlot(date, horario, profissional) {
-  if (!confirm(`Liberar ${horario} em ${date}?`)) return;
-  try {
-    await apiFetch('/api/barbeiro/unblock', { method: 'POST', body: { date, horario, profissional } });
-    showToast(`${horario} liberado`); loadAgenda();
-  } catch (e) { showToast(e.error || 'Erro ao liberar'); }
+function blockSlot(date, horario, profissional) {
+  const [, m, d] = date.split('-');
+  openConfirmModal(
+    'Bloquear horário',
+    `Bloquear ${horario} em ${d}/${m}?`,
+    async () => {
+      try {
+        await apiFetch('/api/barbeiro/block', { method: 'POST', body: { date, horario, profissional } });
+        showToast(`${horario} bloqueado`); loadAgenda();
+      } catch (e) { showToast(e.error || 'Erro ao bloquear'); }
+    }
+  );
+}
+
+function unblockSlot(date, horario, profissional) {
+  const [, m, d] = date.split('-');
+  openConfirmModal(
+    'Liberar horário',
+    `Liberar ${horario} em ${d}/${m}?`,
+    async () => {
+      try {
+        await apiFetch('/api/barbeiro/unblock', { method: 'POST', body: { date, horario, profissional } });
+        showToast(`${horario} liberado`); loadAgenda();
+      } catch (e) { showToast(e.error || 'Erro ao liberar'); }
+    }
+  );
 }
 
 let _cancelPending = null;
