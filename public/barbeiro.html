@@ -162,13 +162,19 @@
     }
     @media (max-width: 680px) { .prof-split { grid-template-columns: 1fr; } }
 
-    /* Multi-prof: week view sections */
-    .prof-week-section + .prof-week-section { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
-    .prof-week-title {
-      font-family: 'Cinzel', serif; font-size: .75rem; color: var(--gold);
-      letter-spacing: .14em; text-transform: uppercase;
-      margin-bottom: .6rem; padding-bottom: .35rem; border-bottom: 1px solid var(--border);
-    }
+    /* Week view: grade 2 colunas no modo multi-prof */
+    .week-grid.multi-prof { grid-template-columns: repeat(2, 1fr); }
+    @media (max-width: 680px) { .week-grid.multi-prof { grid-template-columns: 1fr; } }
+
+    /* Slots compactos dentro do parallelo da semana */
+    .week-day-card .prof-split { gap: .35rem; }
+    .week-day-card .prof-split .slot-actions { display: none; }
+    .week-day-card .prof-split .slot-status { display: none; }
+    .week-day-card .prof-split .slot-row { padding: .38rem .45rem; margin-bottom: .18rem; gap: .4rem; }
+    .week-day-card .prof-split .slot-time { font-size: .74rem; min-width: 32px; }
+    .week-day-card .prof-split .slot-name { font-size: .71rem; }
+    .week-day-card .prof-split .slot-meta { font-size: .62rem; }
+    .week-day-card .prof-split .prof-col-header { font-size: .58rem; padding: .22rem .1rem; margin-bottom: .25rem; }
     .slot-actions { display: flex; gap: .35rem; flex-shrink: 0; }
     .slot-btn {
       padding: .35rem .7rem; border-radius: 5px; font-size: .68rem; cursor: pointer;
@@ -614,11 +620,16 @@ function renderAgenda(data) {
     };
 
     if (multiProf) {
-      html = allProfIds.map(profId => {
-        const profName = profissionais.find(p => p.id === profId)?.nome || profId;
-        const grid = data.dates.map(day => buildDayCard(day, profId)).join('');
-        return `<div class="prof-week-section"><div class="prof-week-title">${profName}</div><div class="week-grid">${grid}</div></div>`;
-      }).join('');
+      const buildDayCardParallel = (day) => {
+        const d = new Date(day.date + 'T12:00:00');
+        const isToday = day.date === today;
+        let card = `<div class="week-day-card${isToday?' today':''}">`;
+        card += `<div class="day-header${isToday?' today':''}">${DIAS[d.getDay()]} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}${isToday?' — Hoje':''}</div>`;
+        if (!day.slots.length) card += '<div style="color:var(--muted);font-size:.75rem;padding:.5rem 0 .3rem;text-align:center">Sem horários</div>';
+        else card += renderSlotsGrouped(day.slots, day.date, today, nowMin, true);
+        return card + '</div>';
+      };
+      html = '<div class="week-grid multi-prof">' + data.dates.map(buildDayCardParallel).join('') + '</div>';
     } else {
       html = '<div class="week-grid">' + data.dates.map(day => buildDayCard(day, null)).join('') + '</div>';
     }
