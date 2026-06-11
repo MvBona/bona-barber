@@ -1528,7 +1528,7 @@ app.post("/api/barbeiro/unblock", barberAuth, async (req, res) => {
 });
 
 app.post("/api/barbeiro/cancel", barberAuth, async (req, res) => {
-  const { date, horario, profissional: profIdReq } = req.body || {};
+  const { date, horario, profissional: profIdReq, mensagem } = req.body || {};
   if (!date || !horario) return res.status(400).json({ error: "date e horario obrigatórios" });
   const isDono = req.session.role === "dono";
   const profId = isDono ? (profIdReq || null) : req.session.profId;
@@ -1537,7 +1537,9 @@ app.post("/api/barbeiro/cancel", barberAuth, async (req, res) => {
   try {
     const cancelled = await cancelSlotAdmin(date, horario, profId);
     if (!cancelled) return res.status(404).json({ error: "Nenhum agendamento encontrado" });
-    await sendMessage(cancelled.clientPhone, `Olá ${cancelled.clientName}! Seu horário foi cancelado. Entre em contato para reagendar.`).catch(() => {});
+    if (mensagem && cancelled.clientPhone) {
+      await sendMessage(cancelled.clientPhone, mensagem).catch(() => {});
+    }
     res.json({ ok: true, nome: cancelled.clientName });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

@@ -205,6 +205,34 @@
     .cbar { width: 60%; height: 3px; border-radius: 2px; margin: 8px auto 0; }
     .ccount { font-size: .65rem; color: var(--muted); margin-top: 4px; line-height: 1; }
 
+    /* Cancel modal */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100;
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    @media (min-width: 480px) { .modal-overlay { align-items: center; } }
+    .modal-box {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 16px 16px 0 0;
+      padding: 1.5rem 1.4rem 2rem; width: 100%; max-width: 480px;
+    }
+    @media (min-width: 480px) { .modal-box { border-radius: 16px; } }
+    .modal-box h3 { font-family: 'Cinzel', serif; font-size: 1rem; color: var(--gold); margin-bottom: .3rem; }
+    .modal-box .modal-sub { font-size: .78rem; color: var(--muted); margin-bottom: 1.2rem; }
+    .modal-check { display: flex; align-items: center; gap: .5rem; font-size: .8rem; color: var(--muted); margin-bottom: .7rem; cursor: pointer; }
+    .modal-check input { accent-color: var(--gold); width: 16px; height: 16px; cursor: pointer; }
+    .modal-textarea {
+      width: 100%; background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+      border-radius: 8px; padding: .75rem; font-size: .82rem; font-family: inherit;
+      resize: vertical; min-height: 100px; line-height: 1.5; transition: border-color .2s;
+    }
+    .modal-textarea:focus { outline: none; border-color: var(--gold); }
+    .modal-textarea:disabled { opacity: .35; cursor: not-allowed; }
+    .modal-actions { display: flex; gap: .6rem; margin-top: 1rem; }
+    .modal-actions .btn-back { flex: 1; background: var(--bg3); border: 1px solid var(--border); color: var(--muted); padding: .8rem; border-radius: 8px; font-size: .8rem; cursor: pointer; transition: all .15s; }
+    .modal-actions .btn-back:hover { border-color: var(--gold); color: var(--gold); }
+    .modal-actions .btn-confirm-cancel { flex: 2; background: transparent; border: 1px solid var(--red); color: var(--red); padding: .8rem; border-radius: 8px; font-family: 'Cinzel', serif; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; transition: all .15s; }
+    .modal-actions .btn-confirm-cancel:hover { background: rgba(224,85,85,.12); }
+
     /* Toast */
     #toast {
       position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
@@ -318,6 +346,22 @@
   </div>
 
   <div id="agenda-content"><div class="loading"><div class="spinner"></div><br>Carregando...</div></div>
+</div>
+
+<div id="cancel-modal" style="display:none" class="modal-overlay" onclick="handleModalOverlayClick(event)">
+  <div class="modal-box">
+    <h3>Cancelar agendamento</h3>
+    <p class="modal-sub" id="cancel-modal-sub"></p>
+    <label class="modal-check">
+      <input type="checkbox" id="cancel-send-msg" checked onchange="toggleCancelMsg(this)">
+      Enviar mensagem ao cliente
+    </label>
+    <textarea id="cancel-msg-text" class="modal-textarea"></textarea>
+    <div class="modal-actions">
+      <button class="btn-back" onclick="closeCancelModal()">Voltar</button>
+      <button class="btn-confirm-cancel" onclick="confirmCancel()">Confirmar cancelamento</button>
+    </div>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -621,11 +665,41 @@ async function unblockSlot(date, horario, profissional) {
   } catch (e) { showToast(e.error || 'Erro ao liberar'); }
 }
 
-async function cancelSlot(date, horario, profissional, nome) {
-  if (!confirm(`Cancelar agendamento de ${nome} às ${horario}?`)) return;
+let _cancelPending = null;
+
+function cancelSlot(date, horario, profissional, nome) {
+  _cancelPending = { date, horario, profissional, nome };
+  document.getElementById('cancel-modal-sub').textContent = `${nome} · ${horario}`;
+  const defaultMsg = `Olá ${nome}! Precisamos cancelar seu horário das ${horario}. Pedimos desculpas pelo transtorno — entre em contato para reagendar.`;
+  document.getElementById('cancel-msg-text').value = defaultMsg;
+  document.getElementById('cancel-msg-text').disabled = false;
+  document.getElementById('cancel-send-msg').checked = true;
+  document.getElementById('cancel-modal').style.display = 'flex';
+}
+
+function closeCancelModal() {
+  document.getElementById('cancel-modal').style.display = 'none';
+  _cancelPending = null;
+}
+
+function handleModalOverlayClick(e) {
+  if (e.target === document.getElementById('cancel-modal')) closeCancelModal();
+}
+
+function toggleCancelMsg(cb) {
+  document.getElementById('cancel-msg-text').disabled = !cb.checked;
+}
+
+async function confirmCancel() {
+  if (!_cancelPending) return;
+  const { date, horario, profissional, nome } = _cancelPending;
+  const sendMsg = document.getElementById('cancel-send-msg').checked;
+  const mensagem = sendMsg ? document.getElementById('cancel-msg-text').value.trim() : '';
+  closeCancelModal();
   try {
-    await apiFetch('/api/barbeiro/cancel', { method: 'POST', body: { date, horario, profissional } });
-    showToast(`Agendamento de ${nome} cancelado`); loadAgenda();
+    await apiFetch('/api/barbeiro/cancel', { method: 'POST', body: { date, horario, profissional, mensagem } });
+    showToast(`Agendamento de ${nome} cancelado`);
+    loadAgenda();
   } catch (e) { showToast(e.error || 'Erro ao cancelar'); }
 }
 
