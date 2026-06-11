@@ -560,7 +560,9 @@ function renderAgenda(data) {
         let inner = `<div class="cdn">${d}</div>`;
         if (!isSun && total > 0) {
           inner += `<div class="cbar" style="background:${barColor}"></div>`;
-          inner += `<div class="ccount">${agendado>0?agendado+'✦':''}${livre>0?livre+'L':''}</div>`;
+          const label = livre > 0 ? `${livre}` : 'Lot.';
+          const labelColor = livre > 0 ? 'var(--muted)' : 'var(--red)';
+          inner += `<div class="ccount" style="color:${labelColor}">${label}</div>`;
         }
         html += `<div class="${cls}" ${click}>${inner}</div>`;
       }
