@@ -152,6 +152,13 @@
     .slot-row.livre .slot-status { color: var(--green); }
     .slot-row.agendado .slot-status { color: var(--gold); }
     .slot-row.bloqueado .slot-status { color: var(--muted); }
+    .prof-group-header {
+      font-family: 'Cinzel', serif; font-size: .62rem; color: var(--gold);
+      letter-spacing: .12em; text-transform: uppercase;
+      padding: .5rem .2rem .25rem; margin-top: .5rem;
+      border-bottom: 1px solid var(--border); margin-bottom: .25rem;
+    }
+    .prof-group-header:first-child { margin-top: 0; }
     .slot-actions { display: flex; gap: .35rem; flex-shrink: 0; }
     .slot-btn {
       padding: .35rem .7rem; border-radius: 5px; font-size: .68rem; cursor: pointer;
@@ -579,7 +586,7 @@ function renderAgenda(data) {
     const dayData = data.dates[0];
     if (!dayData || !dayData.slots.length) { html = '<div class="loading" style="padding:2rem">Nenhum horário neste dia</div>'; }
     else {
-      html = dayData.slots.map(s => renderSlot(s, dayData.date, today, nowMin)).join('');
+      html = renderSlotsGrouped(dayData.slots, dayData.date, today, nowMin);
     }
   } else if (currentView === 'semana') {
     html = '<div class="week-grid">';
@@ -591,7 +598,7 @@ function renderAgenda(data) {
       if (!day.slots.length) {
         html += '<div style="color:var(--muted);font-size:.75rem;padding:.5rem 0 .3rem;text-align:center">Sem horários</div>';
       } else {
-        html += day.slots.map(s => renderSlot(s, day.date, today, nowMin)).join('');
+        html += renderSlotsGrouped(day.slots, day.date, today, nowMin);
       }
       html += '</div>';
     }
@@ -645,6 +652,17 @@ function renderAgenda(data) {
 function goToDay(dateStr) {
   currentDate = dateStr;
   setView('dia');
+}
+
+function renderSlotsGrouped(slots, date, today, nowMin) {
+  const profIds = [...new Set(slots.map(s => s.profissional))];
+  if (profIds.length <= 1) return slots.map(s => renderSlot(s, date, today, nowMin)).join('');
+  return profIds.map(profId => {
+    const profName = profissionais.find(p => p.id === profId)?.nome || profId;
+    const grupo = slots.filter(s => s.profissional === profId);
+    return `<div class="prof-group-header">${profName}</div>` +
+      grupo.map(s => renderSlot(s, date, today, nowMin)).join('');
+  }).join('');
 }
 
 function renderSlot(s, date, today, nowMin) {
