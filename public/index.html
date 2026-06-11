@@ -145,6 +145,8 @@
     #footer-address a:hover { color:var(--gold); }
     #last-update { font-size:.6rem; color:#333; margin-top:.4rem; letter-spacing:.08em; transition:color .4s; }
     #last-update.fresh { color:var(--gold); }
+    .footer-admin-link { display:inline-block; margin-top:.9rem; font-size:.6rem; color:#333; letter-spacing:.1em; text-decoration:none; text-transform:uppercase; transition:color .2s; }
+    .footer-admin-link:hover { color:var(--gold); }
 
     /* ── MODAL ── */
     .modal-overlay { position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.75); display:flex; align-items:center; justify-content:center; padding:1rem; }
@@ -254,6 +256,7 @@
   Agenda — <span id="footer-name">...</span>
   <div id="footer-address"></div>
   <div id="last-update"></div>
+  <a href="/barbeiro" class="footer-admin-link">🔒 Acesso do barbeiro</a>
 </footer>
 
 <div id="modal" class="modal-overlay" style="display:none" onclick="handleOverlayClick(event)">
