@@ -491,7 +491,7 @@ function renderAgenda(data) {
     for (const day of data.dates) {
       const d = new Date(day.date + 'T12:00:00');
       const isToday = day.date === today;
-      html += `<div class="day-header${isToday?' today':'}">${DIAS[d.getDay()]} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}${isToday?' — Hoje':''}</div>`;
+      html += `<div class="day-header${isToday?' today':''}">${DIAS[d.getDay()]} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}${isToday?' — Hoje':''}</div>`;
       if (!day.slots.length) html += '<div style="color:var(--muted);font-size:.78rem;padding:.4rem 0 .8rem">Sem horários</div>';
       else html += day.slots.map(s => renderSlot(s, day.date, today, nowMin)).join('');
     }
