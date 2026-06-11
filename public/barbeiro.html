@@ -187,23 +187,23 @@
 
     /* Month calendar */
     .cal-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .cal-inner { min-width: 320px; }
-    .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; margin-top: .4rem; }
-    .cal-head { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; margin-bottom: 3px; }
-    .cal-wn { text-align: center; font-size: .62rem; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; padding: .3rem .1rem; }
+    .cal-inner { min-width: 300px; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; margin-top: .5rem; }
+    .cal-head { display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; margin-bottom: 2px; }
+    .cal-wn { text-align: center; font-size: .68rem; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; padding: .4rem .1rem; }
     .cal-cell {
-      background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
-      padding: .45rem .2rem .4rem; text-align: center; min-height: 62px;
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+      padding: .7rem .3rem .6rem; text-align: center; min-height: 80px;
       cursor: pointer; transition: all .15s; display: flex; flex-direction: column; align-items: center;
     }
     .cal-cell.empty { cursor: default; background: transparent; border-color: transparent; }
     .cal-cell.sunday { cursor: default; opacity: .18; }
-    .cal-cell.past { opacity: .3; cursor: default; }
-    .cal-cell.today { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(201,164,71,.3); }
+    .cal-cell.past { opacity: .32; cursor: default; }
+    .cal-cell.today { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(201,164,71,.25); }
     .cal-cell:not(.empty):not(.sunday):not(.past):hover { border-color: var(--gold); background: var(--gold-dim); }
-    .cdn { font-size: .82rem; font-weight: 700; line-height: 1; }
-    .cbar { width: 65%; height: 3px; border-radius: 2px; margin: 5px auto 0; }
-    .ccount { font-size: .6rem; color: var(--muted); margin-top: 3px; line-height: 1; }
+    .cdn { font-size: .95rem; font-weight: 700; line-height: 1; }
+    .cbar { width: 60%; height: 3px; border-radius: 2px; margin: 8px auto 0; }
+    .ccount { font-size: .65rem; color: var(--muted); margin-top: 4px; line-height: 1; }
 
     /* Toast */
     #toast {
