@@ -575,18 +575,12 @@ function goToDay(dateStr) {
   setView('dia');
 }
 
-function cleanPhone(tel) {
-  if (!tel) return '';
-  return tel.replace(/@\w+$/, ''); // remove @s.whatsapp.net, @lid, etc.
-}
-
 function renderSlot(s, date, today, nowMin) {
   const [h, min] = s.horario.split(':').map(Number);
   const isPast = date < today || (date === today && (h*60+min) < nowMin);
   let cls = `slot-row ${s.status}${isPast?' passado':''}`;
-  const telDisplay = cleanPhone(s.telefone);
   const nameHtml = s.status === 'agendado'
-    ? `<div class="slot-name">${s.nome || 'Cliente'}</div><div class="slot-meta">${s.servico || ''}${telDisplay ? ' · '+telDisplay : ''}</div>`
+    ? `<div class="slot-name">${s.nome || 'Cliente'}</div>${s.servico ? `<div class="slot-meta">${s.servico}</div>` : ''}`
     : s.status === 'bloqueado'
     ? `<div class="slot-name" style="color:var(--muted)">Bloqueado</div>`
     : `<div class="slot-name" style="color:var(--green)">Disponível</div>`;
