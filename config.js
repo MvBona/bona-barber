@@ -13,7 +13,7 @@ module.exports = {
   diasFechado: [0], // domingo
 
   profissionais: [
-    { id: "marcos", nome: "Marcos", telefone: "595973413527" },
+    { id: "marcos", nome: "Marcos", telefone: "595973413527", role: "dono" },
     // { id: "livia",  nome: "Lívia",  telefone: "595973629910" },
   ],
   adminsPorProfissional: true,

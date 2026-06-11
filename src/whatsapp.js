@@ -26,6 +26,11 @@ const lastMessageTime = new Map();
 const jidCache = new Map();        // phone → jid
 const reverseJidCache = new Map(); // jid → phone
 let sock = null;
+let connectionStatus = "disconnected"; // "disconnected" | "connecting" | "connected"
+let currentQR = null;
+
+function getConnectionStatus() { return connectionStatus; }
+function getQRCode() { return currentQR; }
 
 // Carrega mapeamentos salvos na sessão anterior
 function loadJidCache() {
@@ -99,11 +104,14 @@ async function initBaileys(onMessage) {
 
   sock.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {
     if (qr) {
+      currentQR = qr;
+      connectionStatus = "connecting";
       console.log("\n📱 Escaneie o QR Code com o WhatsApp (Dispositivos vinculados):\n");
       qrcode.generate(qr, { small: true });
     }
 
     if (connection === "close") {
+      connectionStatus = "disconnected";
       const codigo = lastDisconnect?.error?.output?.statusCode;
       if (codigo === DisconnectReason.loggedOut) {
         console.error("⚠️  Sessão encerrada (logout). Apague auth_info_baileys/ e reinicie.");
@@ -114,8 +122,9 @@ async function initBaileys(onMessage) {
     }
 
     if (connection === "open") {
+      connectionStatus = "connected";
+      currentQR = null;
       console.log("✅ WhatsApp conectado!");
-      // Resolve o JID do barbeiro ANTES de começar a processar mensagens
       const barberPhone = process.env.BARBERSHOP_PHONE;
       if (barberPhone && !jidCache.has(barberPhone)) {
         await phoneToJid(barberPhone).catch(() => {});
@@ -151,4 +160,4 @@ async function sendMessage(phone, message) {
   console.log("Mensagem enviada para", phone);
 }
 
-module.exports = { initBaileys, sendMessage, downloadMediaMessage, jidToPhone };
+module.exports = { initBaileys, sendMessage, downloadMediaMessage, jidToPhone, getConnectionStatus, getQRCode };

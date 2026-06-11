@@ -596,6 +596,48 @@ async function getSlotsForDates(dates, profId = null) {
   return { dates: dates.map((date) => ({ date, slots: slotsByDate[date] || [] })) };
 }
 
+async function getSlotsAdmin(dates, profId = null) {
+  if (!dates.length) return { dates: [] };
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client });
+  const byMonth = {};
+  for (const date of dates) {
+    const sn = getSheetName(date);
+    if (!byMonth[sn]) byMonth[sn] = new Set();
+    byMonth[sn].add(date);
+  }
+  const validProfIds = new Set(getProfissionais().map(p => p.id));
+  const byDate = {};
+  for (const [sheetName, monthDates] of Object.entries(byMonth)) {
+    try {
+      const response = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `${sheetName}!A:K` });
+      for (const row of (response.data.values || []).slice(1)) {
+        if (!monthDates.has(row[0])) continue;
+        if (!validProfIds.has(row[2])) continue;
+        if (profId && row[2] !== profId) continue;
+        if (!byDate[row[0]]) byDate[row[0]] = {};
+        const key = `${row[1]}|${row[2]}`;
+        const existing = byDate[row[0]][key];
+        const STATUS_PRIORITY = { agendado: 3, bloqueado: 2, livre: 1 };
+        const rowStatus = row[5] || "livre";
+        if (!existing || (STATUS_PRIORITY[rowStatus] || 0) > (STATUS_PRIORITY[existing.status] || 0)) {
+          byDate[row[0]][key] = {
+            horario: row[1], profissional: row[2],
+            nome: row[3] || "", telefone: row[4] || "",
+            status: rowStatus, servico: row[6] || "",
+          };
+        }
+      }
+    } catch {}
+  }
+  return {
+    dates: dates.map(date => ({
+      date,
+      slots: Object.values(byDate[date] || {}).sort((a, b) => a.horario.localeCompare(b.horario)),
+    })),
+  };
+}
+
 // ── Horário customizado ────────────────────────────────────────────────────────
 // profId=null → aplica para todos os profissionais
 async function setCustomHours(date, inicio, fim, profId = null) {
@@ -660,5 +702,5 @@ module.exports = {
   rescheduleSlot, getClientName, getAppointmentsForReminder, markReminderSent,
   appendLembretes, getUnconfirmedReminders, countClientAppointmentsOnDay,
   getSlotInfo, getDaySchedule, updateClientPhone, getWeeklySummary,
-  getSlotsForDates, setCustomHours, getProfissionais, isMultiProfessional,
+  getSlotsForDates, getSlotsAdmin, setCustomHours, getProfissionais, isMultiProfessional,
 };
