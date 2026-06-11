@@ -112,9 +112,13 @@ async function initBaileys(onMessage) {
 
     if (connection === "close") {
       connectionStatus = "disconnected";
+      currentQR = null;
       const codigo = lastDisconnect?.error?.output?.statusCode;
       if (codigo === DisconnectReason.loggedOut) {
-        console.error("⚠️  Sessão encerrada (logout). Apague auth_info_baileys/ e reinicie.");
+        console.log("⚠️  Sessão encerrada (logout). Limpando credenciais e aguardando novo QR...");
+        try { fs.rmSync(AUTH_FOLDER, { recursive: true, force: true }); } catch {}
+        connectionStatus = "connecting";
+        await initBaileys(onMessage);
       } else {
         console.log(`🔄 WhatsApp desconectado (código: ${codigo}), reconectando...`);
         await initBaileys(onMessage);

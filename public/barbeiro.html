@@ -322,7 +322,7 @@
 
 <div id="toast"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
 <script>
 const API = '';
 let TOKEN = sessionStorage.getItem('barber_token');
@@ -642,8 +642,15 @@ async function checkWA() {
     const hint = document.getElementById('wa-action-hint');
 
     if (status !== 'connected' && SESSION?.role === 'dono') {
-      hint.textContent = qr ? 'Toque para ver QR Code' : 'Reconectando automaticamente...';
-      if (qr) renderQR(qr);
+      const sec = document.getElementById('qr-section');
+      if (qr) {
+        hint.textContent = 'Escaneie o QR Code abaixo';
+        sec.style.display = 'block';
+        renderQR(qr);
+      } else {
+        hint.textContent = 'Reconectando automaticamente...';
+        sec.style.display = 'none';
+      }
     } else {
       hint.textContent = '';
       document.getElementById('qr-section').style.display = 'none';
@@ -658,11 +665,11 @@ function toggleQR() {
 }
 
 function renderQR(qrString) {
-  const canvas = document.getElementById('qr-canvas');
-  canvas.innerHTML = '';
+  const wrap = document.getElementById('qr-canvas');
+  wrap.innerHTML = '<canvas id="qr-inner"></canvas>';
   try {
-    new QRCode(canvas, { text: qrString, width: 200, height: 200, colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.L });
-  } catch {}
+    new QRious({ element: document.getElementById('qr-inner'), value: qrString, size: 240, background: '#ffffff', foreground: '#000000', level: 'L' });
+  } catch(e) { wrap.innerHTML = '<p style="color:var(--red);font-size:.8rem">Erro ao gerar QR</p>'; }
 }
 
 // ── Init ──
