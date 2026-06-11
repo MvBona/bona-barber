@@ -193,17 +193,18 @@
     .cal-wn { text-align: center; font-size: .68rem; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; padding: .4rem .1rem; }
     .cal-cell {
       background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
-      padding: .7rem .3rem .6rem; text-align: center; min-height: 80px;
-      cursor: pointer; transition: all .15s; display: flex; flex-direction: column; align-items: center;
+      aspect-ratio: 1; text-align: center; cursor: pointer; transition: all .15s;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
     }
     .cal-cell.empty { cursor: default; background: transparent; border-color: transparent; }
-    .cal-cell.sunday { cursor: default; opacity: .18; }
+    .cal-cell.sunday { cursor: default; opacity: .22; }
     .cal-cell.past { opacity: .32; cursor: default; }
     .cal-cell.today { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(201,164,71,.25); }
     .cal-cell:not(.empty):not(.sunday):not(.past):hover { border-color: var(--gold); background: var(--gold-dim); }
-    .cdn { font-size: .95rem; font-weight: 700; line-height: 1; }
-    .cbar { width: 60%; height: 3px; border-radius: 2px; margin: 8px auto 0; }
-    .ccount { font-size: .65rem; color: var(--muted); margin-top: 4px; line-height: 1; }
+    .cdn { font-size: .88rem; font-weight: 700; line-height: 1; }
+    .sun-label { font-size: .55rem; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+    .cbar { width: 65%; height: 3px; border-radius: 2px; }
+    .ccount { font-size: .58rem; color: var(--muted); letter-spacing: .03em; line-height: 1; }
 
     /* Cancel modal */
     .modal-overlay {
@@ -259,6 +260,7 @@
       .slot-btn { padding: .4rem .6rem; font-size: .65rem; min-height: 34px; }
       .date-nav { padding: .5rem .7rem; }
       .date-nav button { width: 40px; height: 40px; }
+      .cal-cell { aspect-ratio: unset; min-height: 52px; }
     }
   </style>
 </head>
@@ -602,9 +604,11 @@ function renderAgenda(data) {
         let cls = 'cal-cell'; if(isSun) cls+=' sunday'; if(isPast) cls+=' past'; if(isToday) cls+=' today';
         const click = (!isSun && !isPast) ? `onclick="goToDay('${ds}')"` : '';
         let inner = `<div class="cdn">${d}</div>`;
-        if (!isSun && total > 0) {
+        if (isSun) {
+          inner += `<div class="sun-label">Fech.</div>`;
+        } else if (total > 0) {
           inner += `<div class="cbar" style="background:${barColor}"></div>`;
-          const label = livre > 0 ? `${livre}` : 'Lot.';
+          const label = livre > 0 ? `${livre} livre${livre !== 1 ? 's' : ''}` : 'Lot.';
           const labelColor = livre > 0 ? 'var(--muted)' : 'var(--red)';
           inner += `<div class="ccount" style="color:${labelColor}">${label}</div>`;
         }

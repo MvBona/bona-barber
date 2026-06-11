@@ -125,11 +125,12 @@
     .cal-cell { aspect-ratio:1; background:var(--bg2); border:1px solid var(--border); border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:all .15s; padding:3px; position:relative; }
     .cal-cell.empty { background:transparent; border-color:transparent; cursor:default; }
     .cal-cell.prev-month { opacity:.15; cursor:default; }
-    .cal-cell.sunday { background:var(--bg2); border-color:var(--border); cursor:default; opacity:.18; }
+    .cal-cell.sunday { background:var(--bg2); border-color:var(--border); cursor:default; opacity:.25; }
     .cal-cell.past { opacity:.28; }
     .cal-cell:not(.empty):not(.sunday):hover { border-color:var(--gold); background:var(--gold-dim); }
     .cal-cell.today { border-color:var(--gold) !important; }
     .cdn { font-size:.82rem; font-weight:600; }
+    .sun-label { font-size:.55rem; color:var(--muted); margin-top:3px; letter-spacing:.04em; text-transform:uppercase; }
     .cbar { width:75%; height:3px; border-radius:2px; margin-top:3px; }
     .ccount { font-size:.62rem; color:var(--muted); margin-top:3px; letter-spacing:.04em; }
 
