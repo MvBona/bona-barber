@@ -153,7 +153,7 @@
     .slot-row.agendado .slot-status { color: var(--gold); }
     .slot-row.bloqueado .slot-status { color: var(--muted); }
     /* Multi-prof: day view side-by-side */
-    .prof-split { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; align-items: start; }
+    .prof-split { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; align-items: start; }
     .prof-col-header {
       font-family: 'Cinzel', serif; font-size: .72rem; color: var(--gold);
       letter-spacing: .14em; text-transform: uppercase;
@@ -162,9 +162,8 @@
     }
     @media (max-width: 680px) { .prof-split { grid-template-columns: 1fr; } }
 
-    /* Week view: grade 2 colunas no modo multi-prof */
-    .week-grid.multi-prof { grid-template-columns: repeat(2, 1fr); }
-    @media (max-width: 680px) { .week-grid.multi-prof { grid-template-columns: 1fr; } }
+    /* Week view: multi-prof sempre 1 dia por linha p/ acomodar N profissionais */
+    .week-grid.multi-prof { grid-template-columns: 1fr; }
 
     /* Slots compactos dentro do parallelo da semana */
     .week-day-card .prof-split { gap: .35rem; }
