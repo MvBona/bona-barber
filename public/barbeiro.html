@@ -152,13 +152,23 @@
     .slot-row.livre .slot-status { color: var(--green); }
     .slot-row.agendado .slot-status { color: var(--gold); }
     .slot-row.bloqueado .slot-status { color: var(--muted); }
-    .prof-group-header {
-      font-family: 'Cinzel', serif; font-size: .62rem; color: var(--gold);
-      letter-spacing: .12em; text-transform: uppercase;
-      padding: .5rem .2rem .25rem; margin-top: .5rem;
-      border-bottom: 1px solid var(--border); margin-bottom: .25rem;
+    /* Multi-prof: day view side-by-side */
+    .prof-split { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; align-items: start; }
+    .prof-col-header {
+      font-family: 'Cinzel', serif; font-size: .72rem; color: var(--gold);
+      letter-spacing: .14em; text-transform: uppercase;
+      text-align: center; padding: .45rem .2rem .4rem;
+      border-bottom: 1px solid var(--border); margin-bottom: .4rem;
     }
-    .prof-group-header:first-child { margin-top: 0; }
+    @media (max-width: 680px) { .prof-split { grid-template-columns: 1fr; } }
+
+    /* Multi-prof: week view sections */
+    .prof-week-section + .prof-week-section { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+    .prof-week-title {
+      font-family: 'Cinzel', serif; font-size: .75rem; color: var(--gold);
+      letter-spacing: .14em; text-transform: uppercase;
+      margin-bottom: .6rem; padding-bottom: .35rem; border-bottom: 1px solid var(--border);
+    }
     .slot-actions { display: flex; gap: .35rem; flex-shrink: 0; }
     .slot-btn {
       padding: .35rem .7rem; border-radius: 5px; font-size: .68rem; cursor: pointer;
@@ -586,23 +596,32 @@ function renderAgenda(data) {
     const dayData = data.dates[0];
     if (!dayData || !dayData.slots.length) { html = '<div class="loading" style="padding:2rem">Nenhum horário neste dia</div>'; }
     else {
-      html = renderSlotsGrouped(dayData.slots, dayData.date, today, nowMin);
+      html = renderSlotsGrouped(dayData.slots, dayData.date, today, nowMin, true);
     }
   } else if (currentView === 'semana') {
-    html = '<div class="week-grid">';
-    for (const day of data.dates) {
+    const allProfIds = [...new Set(data.dates.flatMap(d => d.slots.map(s => s.profissional)))];
+    const multiProf = allProfIds.length > 1;
+
+    const buildDayCard = (day, filterProfId) => {
       const d = new Date(day.date + 'T12:00:00');
       const isToday = day.date === today;
-      html += `<div class="week-day-card${isToday?' today':''}">`;
-      html += `<div class="day-header${isToday?' today':''}">${DIAS[d.getDay()]} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}${isToday?' — Hoje':''}</div>`;
-      if (!day.slots.length) {
-        html += '<div style="color:var(--muted);font-size:.75rem;padding:.5rem 0 .3rem;text-align:center">Sem horários</div>';
-      } else {
-        html += renderSlotsGrouped(day.slots, day.date, today, nowMin);
-      }
-      html += '</div>';
+      const slots = filterProfId ? day.slots.filter(s => s.profissional === filterProfId) : day.slots;
+      let card = `<div class="week-day-card${isToday?' today':''}">`;
+      card += `<div class="day-header${isToday?' today':''}">${DIAS[d.getDay()]} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}${isToday?' — Hoje':''}</div>`;
+      if (!slots.length) card += '<div style="color:var(--muted);font-size:.75rem;padding:.5rem 0 .3rem;text-align:center">Sem horários</div>';
+      else card += slots.map(s => renderSlot(s, day.date, today, nowMin)).join('');
+      return card + '</div>';
+    };
+
+    if (multiProf) {
+      html = allProfIds.map(profId => {
+        const profName = profissionais.find(p => p.id === profId)?.nome || profId;
+        const grid = data.dates.map(day => buildDayCard(day, profId)).join('');
+        return `<div class="prof-week-section"><div class="prof-week-title">${profName}</div><div class="week-grid">${grid}</div></div>`;
+      }).join('');
+    } else {
+      html = '<div class="week-grid">' + data.dates.map(day => buildDayCard(day, null)).join('') + '</div>';
     }
-    html += '</div>';
   } else {
     // Month calendar
     document.getElementById('date-nav').style.display = 'flex';
@@ -654,14 +673,21 @@ function goToDay(dateStr) {
   setView('dia');
 }
 
-function renderSlotsGrouped(slots, date, today, nowMin) {
+function renderSlotsGrouped(slots, date, today, nowMin, sideBySide = false) {
   const profIds = [...new Set(slots.map(s => s.profissional))];
   if (profIds.length <= 1) return slots.map(s => renderSlot(s, date, today, nowMin)).join('');
+  if (sideBySide) {
+    const cols = profIds.map(profId => {
+      const profName = profissionais.find(p => p.id === profId)?.nome || profId;
+      const grupo = slots.filter(s => s.profissional === profId);
+      return `<div class="prof-col"><div class="prof-col-header">${profName}</div>${grupo.map(s => renderSlot(s, date, today, nowMin)).join('')}</div>`;
+    }).join('');
+    return `<div class="prof-split">${cols}</div>`;
+  }
   return profIds.map(profId => {
     const profName = profissionais.find(p => p.id === profId)?.nome || profId;
     const grupo = slots.filter(s => s.profissional === profId);
-    return `<div class="prof-group-header">${profName}</div>` +
-      grupo.map(s => renderSlot(s, date, today, nowMin)).join('');
+    return grupo.map(s => renderSlot(s, date, today, nowMin)).join('');
   }).join('');
 }
 
